@@ -118,6 +118,37 @@ Open your browser at **http://127.0.0.1:8000** to access Project Pulse.
 
 ---
 
+## 5.1 Deploying to Vercel
+
+Project Pulse is configured for zero-friction deployment to [Vercel](https://vercel.com) as a serverless ASGI application via `api/index.py` and `vercel.json`.
+
+### Option A: Via GitHub Integration (Recommended)
+1. Push your repository to GitHub.
+2. In the Vercel Dashboard, click **Add New... -> Project** and import your repository.
+3. Keep default settings (Vercel automatically detects `vercel.json` and `api/index.py`).
+4. (Optional) Set Environment Variables:
+   - `DEMO_ENABLED=true`
+   - `PULSE_ENV=production`
+   - `PULSE_DB_PATH` (defaults to `/tmp/pulse.db` on Vercel; or configure an external PostgreSQL URL like `postgresql://user:pass@host/db`).
+5. Click **Deploy**. Vercel will build and assign a live `*.vercel.app` URL.
+
+### Option B: Via Vercel CLI
+```bash
+npm install -g vercel
+vercel login
+vercel
+```
+To deploy directly to production:
+```bash
+vercel --prod
+```
+
+### Serverless Architecture on Vercel
+- **Stateless Lambda Execution:** In serverless environments, the local filesystem is ephemeral and read-only except for `/tmp`. The app automatically detects the `VERCEL=1` runtime flag and writes temporary SQLite sessions to `/tmp/pulse.db`.
+- **For Permanent Cross-Region Persistence:** Set `PULSE_DB_PATH` in your Vercel Project Settings to a remote managed PostgreSQL database URL (e.g. Neon, Supabase, or AWS RDS).
+
+---
+
 ## 6. Accessing Camera Pulse on a Physical Phone (HTTPS)
 
 Browsers require a **Secure Context (HTTPS or localhost)** to access `navigator.mediaDevices.getUserMedia`. Webcams on laptops generally lack the sensor sensitivity and flash illumination required for transmissive fingertip photoplethysmography (PPG).

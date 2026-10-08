@@ -1,0 +1,10 @@
+.git
+.github
+.pytest_cache/
+tests/
+data/
+*.db
+run.bat
+run.sh
+__pycache__/
+*.pyc

@@ -10,7 +10,10 @@ from backend.config import PULSE_DB_PATH
 # Ensure parent directory for database exists if using file path
 if not PULSE_DB_PATH.startswith(":memory:") and not PULSE_DB_PATH.startswith("sqlite:///:memory:"):
     db_file_path = Path(PULSE_DB_PATH)
-    db_file_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        db_file_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
 
 SQLITE_URL = f"sqlite:///{PULSE_DB_PATH}" if "://" not in PULSE_DB_PATH else PULSE_DB_PATH
 

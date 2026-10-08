@@ -13,28 +13,29 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from backend.config import LOG_LEVEL
 
-# Set up logging directory
-log_dir = Path("data/logs")
-log_dir.mkdir(parents=True, exist_ok=True)
-log_file = log_dir / "pulse.log"
-
 logger = logging.getLogger("pulse")
 logger.setLevel(getattr(logging, LOG_LEVEL.upper(), logging.INFO))
 logger.handlers.clear()
 
-# Console handler
+# Console handler (standard for Vercel and local terminal output)
 console_handler = logging.StreamHandler()
 console_formatter = logging.Formatter("[%(asctime)s] %(levelname)s - %(message)s")
 console_handler.setFormatter(console_formatter)
 logger.addHandler(console_handler)
 
-# Rotating file handler (5MB per file, max 5 backups)
-file_handler = RotatingFileHandler(str(log_file), maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8")
-file_formatter = logging.Formatter(
-    '{"time":"%(asctime)s","level":"%(levelname)s","message":%(message)s}'
-)
-file_handler.setFormatter(file_formatter)
-logger.addHandler(file_handler)
+# Rotating file handler (optional file persistence, safe on serverless)
+try:
+    log_dir = Path("/tmp/logs" if os.getenv("VERCEL") else "data/logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "pulse.log"
+    file_handler = RotatingFileHandler(str(log_file), maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8")
+    file_formatter = logging.Formatter(
+        '{"time":"%(asctime)s","level":"%(levelname)s","message":%(message)s}'
+    )
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+except Exception:
+    pass
 
 
 class PulseSecurityAndLoggingMiddleware(BaseHTTPMiddleware):

@@ -165,6 +165,9 @@ app.include_router(data_router)
 app.include_router(demo_router)
 
 # Mount frontend static files
-frontend_path = Path("frontend")
+frontend_path = Path(__file__).resolve().parent.parent / "frontend"
+if not frontend_path.exists():
+    frontend_path = Path("frontend")
+
 if frontend_path.exists():
-    app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")

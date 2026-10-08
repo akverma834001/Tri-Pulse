@@ -41,7 +41,8 @@ def _get_bool(key: str, default: bool) -> bool:
 
 # --- Environment & App ---
 PULSE_ENV: str = _get_str("PULSE_ENV", "development")
-PULSE_DB_PATH: str = _get_str("PULSE_DB_PATH", "data/pulse.db")
+_default_db: str = "/tmp/pulse.db" if os.getenv("VERCEL") else "data/pulse.db"
+PULSE_DB_PATH: str = _get_str("PULSE_DB_PATH", _default_db)
 DEMO_ENABLED: bool = _get_bool("DEMO_ENABLED", True)
 LOG_LEVEL: str = _get_str("LOG_LEVEL", "INFO")
 SESSION_EXPIRY_DAYS: int = _get_int("SESSION_EXPIRY_DAYS", 7)
