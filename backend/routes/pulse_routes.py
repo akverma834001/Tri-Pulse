@@ -82,6 +82,19 @@ def record_pulse(
             detail={"code": "invalid_payload", "message": "Must provide either camera data or manual bpm."},
         )
 
+    # Anti-poisoning check: flag sessions recorded < 3 minutes apart as ineligible for baseline
+    last_pulse = (
+        db.query(PulseSession)
+        .filter(PulseSession.user_id == user.id)
+        .order_by(PulseSession.event_time.desc())
+        .first()
+    )
+    is_eligible = True
+    if last_pulse:
+        diff_sec = abs((ev_time - (last_pulse.event_time if last_pulse.event_time.tzinfo else last_pulse.event_time.replace(tzinfo=timezone.utc))).total_seconds())
+        if diff_sec < 180:
+            is_eligible = False
+
     pulse_session = PulseSession(
         user_id=user.id,
         event_time=ev_time,
@@ -90,6 +103,7 @@ def record_pulse(
         signal_quality=qual,
         source=source,
         client_uuid=client_uuid,
+        is_baseline_eligible=is_eligible,
         created_at=get_clock().now(),
     )
     db.add(pulse_session)

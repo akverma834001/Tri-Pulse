@@ -7,12 +7,14 @@ import { api } from './api.js';
 import { showToast } from './ui.js';
 
 export class PulseCameraCapture {
-  constructor(videoEl, canvasEl, onProgress, onStatus) {
+  constructor(videoEl, canvasEl, onProgress, onStatus, onComplete, onError) {
     this.videoEl = videoEl;
     this.canvasEl = canvasEl;
     this.ctx = canvasEl.getContext('2d', { willReadFrequently: true });
     this.onProgress = onProgress;
     this.onStatus = onStatus;
+    this.onComplete = onComplete;
+    this.onError = onError;
 
     this.stream = null;
     this.track = null;
@@ -128,7 +130,13 @@ export class PulseCameraCapture {
     this.onProgress(progressPct, remainingSec);
 
     if (elapsedSec >= this.durationSec) {
-      this.finish();
+      this.finish()
+        .then((res) => {
+          if (this.onComplete) this.onComplete(res);
+        })
+        .catch((err) => {
+          if (this.onError) this.onError(err);
+        });
       return;
     }
 

@@ -174,15 +174,17 @@
         currentCursor = res.next_cursor;
 
         if (append) {
-          allItems = allItems.concat(res.items);
+          const existingIds = new Set(allItems.map(i => i.id));
+          const newItems = (res.items || []).filter(i => !existingIds.has(i.id));
+          allItems = allItems.concat(newItems);
         } else {
-          allItems = res.items;
+          allItems = res.items || [];
         }
 
         renderTimeline(allItems);
 
         const loadMoreBtn = document.getElementById('pagination-wrap');
-        if (res.has_more) {
+        if (res.has_more && res.next_cursor) {
           loadMoreBtn.style.display = 'block';
         } else {
           loadMoreBtn.style.display = 'none';

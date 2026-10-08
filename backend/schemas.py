@@ -5,6 +5,41 @@ from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
+from enum import Enum
+
+
+# --- Explicit System and Medical States ---
+class BPState(str, Enum):
+    NO_DATA = "NO_DATA"
+    NORMAL = "NORMAL"
+    ELEVATED = "ELEVATED"
+    HIGH = "HIGH"
+    URGENT = "URGENT"
+    INVALID = "INVALID"
+
+
+class BaselineStatus(str, Enum):
+    NOT_STARTED = "NOT_STARTED"
+    INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+    ESTABLISHED = "ESTABLISHED"
+    RECALIBRATING = "RECALIBRATING"
+
+
+class OrderStatus(str, Enum):
+    PLACED = "PLACED"
+    CONFIRMED = "CONFIRMED"
+    DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
+    REFUNDED = "REFUNDED"
+    UNKNOWN = "UNKNOWN"
+
+
+class ConfidenceLevel(str, Enum):
+    LOW = "LOW"
+    MODERATE = "MODERATE"
+    HIGH = "HIGH"
+
+
 # --- Base Response Envelope ---
 class ErrorDetail(BaseModel):
     code: str
@@ -77,6 +112,7 @@ class SettingsResponse(BaseModel):
     quiet_hours_end: str
     sitting_reminder_minutes: Optional[int] = None
     baselines_reset_at: Optional[datetime] = None
+    baseline_version: int = 1
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -127,6 +163,8 @@ class OrderParseResponse(BaseModel):
     delivery_date: ParsedField
     source: ParsedField
     date_assumed: bool
+    date_confidence: str = "HIGH"
+    order_status: str = "DELIVERED"
     parse_confidence: float
     suggested_categories: List[str]
     is_late_night: bool
@@ -141,6 +179,8 @@ class OrderCreate(BaseModel):
     source: str = "unknown"
     food_categories: List[str] = []
     date_assumed: bool = False
+    date_confidence: str = "HIGH"
+    order_status: str = "DELIVERED"
     parse_confidence: float = 1.0
     client_uuid: Optional[str] = None
 
@@ -151,6 +191,7 @@ class OrderUpdate(BaseModel):
     amount: Optional[float] = None
     event_time: Optional[datetime] = None
     food_categories: Optional[List[str]] = None
+    order_status: Optional[str] = None
 
 
 class OrderResponse(BaseModel):
@@ -163,6 +204,8 @@ class OrderResponse(BaseModel):
     source: str
     food_categories: List[str]
     date_assumed: bool
+    date_confidence: str = "HIGH"
+    order_status: str = "DELIVERED"
     parse_confidence: float
     is_late_night: bool
     created_at: datetime
@@ -196,6 +239,7 @@ class BPResponse(BaseModel):
     pulse_optional: Optional[int]
     category: str
     category_label: str
+    state: str = "NORMAL"
     source: str
     created_at: datetime
     urgent_alert: bool = False
@@ -226,6 +270,7 @@ class PulseSessionResponse(BaseModel):
     signal_quality: float
     source: str
     client_uuid: str
+    is_baseline_eligible: bool = True
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -260,6 +305,7 @@ class BehaviorSessionResponse(BaseModel):
     pause_frequency: float
     source: str
     client_uuid: str
+    is_baseline_eligible: bool = True
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -292,6 +338,8 @@ class InterventionResponse(BaseModel):
     planned_seconds: int
     actual_seconds: Optional[int]
     feeling_after: Optional[str]
+    pre_pulse: Optional[float] = None
+    post_pulse: Optional[float] = None
     created_at: datetime
     started_at: Optional[datetime]
     ended_at: Optional[datetime]
@@ -326,6 +374,8 @@ class InsightResponse(BaseModel):
     evidence: List[str]
     recommended_action: str
     status: str
+    confidence: str = "MODERATE"
+    pattern_engine_version: str = "2.0"
     is_supporting: bool
     feedback: Optional[str]
     created_at: datetime
@@ -345,6 +395,7 @@ class BaselineItem(BaseModel):
     session_count: int
     required_sessions: int
     is_ready: bool
+    status: str = "INSUFFICIENT_DATA"  # NOT_STARTED, INSUFFICIENT_DATA, ESTABLISHED, RECALIBRATING
     explanation: str
 
 
@@ -353,11 +404,16 @@ class TrendBucket(BaseModel):
     window_start: datetime
     window_end: datetime
     late_night_orders: int
+    has_order_data: bool = False
     avg_bp_systolic: Optional[float]
     avg_bp_diastolic: Optional[float]
+    has_bp_data: bool = False
     avg_pulse: Optional[float]
+    has_pulse_data: bool = False
     typing_deviation_pct: Optional[float]
+    has_typing_data: bool = False
     intervention_completion_rate: Optional[float]
+    has_intervention_data: bool = False
 
 
 # --- Dashboard Schema ---

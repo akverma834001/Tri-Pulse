@@ -92,13 +92,12 @@ def get_current_user(
     request: Request,
     db: Session = Depends(get_db),
 ) -> User:
-    """Extract session token from cookie (or Authorization header), validate, and slide expiry."""
-    raw_token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not raw_token:
-        # Also check Authorization: Bearer <token>
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            raw_token = auth_header[7:].strip()
+    # Check explicit Authorization header first, fall back to session cookie
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        raw_token = auth_header[7:].strip()
+    else:
+        raw_token = request.cookies.get(SESSION_COOKIE_NAME)
 
     if not raw_token:
         raise HTTPException(

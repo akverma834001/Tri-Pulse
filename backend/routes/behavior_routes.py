@@ -74,6 +74,19 @@ def record_typing_session(
     if ev_time.tzinfo is None:
         ev_time = ev_time.replace(tzinfo=timezone.utc)
 
+    # Anti-poisoning check: flag sessions recorded < 3 minutes apart as ineligible for baseline
+    last_behav = (
+        db.query(BehaviorSession)
+        .filter(BehaviorSession.user_id == user.id)
+        .order_by(BehaviorSession.event_time.desc())
+        .first()
+    )
+    is_eligible = True
+    if last_behav:
+        diff_sec = abs((ev_time - (last_behav.event_time if last_behav.event_time.tzinfo else last_behav.event_time.replace(tzinfo=timezone.utc))).total_seconds())
+        if diff_sec < 180:
+            is_eligible = False
+
     session_obj = BehaviorSession(
         user_id=user.id,
         event_time=ev_time,
@@ -85,6 +98,7 @@ def record_typing_session(
         error_rate=err_rate,
         source="web_checkin",
         client_uuid=data.client_uuid,
+        is_baseline_eligible=is_eligible,
         created_at=get_clock().now(),
     )
     db.add(session_obj)

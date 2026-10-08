@@ -1,7 +1,7 @@
 """Routes for order ingestion, parsing, updates, and deletion."""
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -41,6 +41,8 @@ def _to_order_response(order: Order, settings: Optional[UserSettings]) -> OrderR
         source=order.source,
         food_categories=order.get_food_categories(),
         date_assumed=order.date_assumed,
+        date_confidence=getattr(order, "date_confidence", "HIGH"),
+        order_status=getattr(order, "order_status", "DELIVERED"),
         parse_confidence=order.parse_confidence,
         is_late_night=is_ln,
         created_at=order.created_at,
@@ -79,10 +81,24 @@ def create_order(
     """Save user-confirmed order, trigger pipeline recomputation, and record event."""
     require_consents(user, db, ["order_data"])
 
+    if data.amount is not None and data.amount < 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "negative_amount", "message": "Order amount cannot be negative."},
+        )
+
     settings = db.query(UserSettings).filter(UserSettings.user_id == user.id).first()
     event_dt = data.event_time
     if event_dt.tzinfo is None:
         event_dt = event_dt.replace(tzinfo=timezone.utc)
+
+    # Reject dates > 24h into the future
+    now = get_clock().now()
+    if event_dt > now + timedelta(hours=24):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "future_timestamp", "message": "Order timestamp cannot be in the future."},
+        )
 
     # Duplicate check: same (user, event_time, amount, restaurant)
     existing = (
@@ -115,6 +131,8 @@ def create_order(
         source=data.source or "unknown",
         food_categories=json.dumps(categories or []),
         date_assumed=data.date_assumed,
+        date_confidence=data.date_confidence or ("LOW" if data.date_assumed else "HIGH"),
+        order_status=data.order_status or "DELIVERED",
         parse_confidence=data.parse_confidence,
         created_at=get_clock().now(),
     )
@@ -137,6 +155,7 @@ def create_order(
         summary={
             "title": f"Order from {order.restaurant}",
             "amount": order.amount,
+            "status": order.order_status,
             "items_count": len(data.food_items),
             "late_night": is_ln,
         },

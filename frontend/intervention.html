@@ -422,7 +422,13 @@
         }
       });
 
+      let isCompleting = false;
       async function handleSessionCompletion() {
+        if (isCompleting) return;
+        isCompleting = true;
+        btnComplete.disabled = true;
+        btnComplete.textContent = 'Completing...';
+
         stopBreathingCycle();
         if (timer) timer.stop();
 
@@ -444,6 +450,9 @@
           showToast('Session completed. Please share a quick check-in.', 'success');
         } catch (err) {
           showToast(err.message || 'Error completing session.', 'error');
+          isCompleting = false;
+          btnComplete.disabled = false;
+          btnComplete.textContent = 'Complete';
         }
       }
 

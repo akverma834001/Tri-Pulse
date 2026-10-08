@@ -76,3 +76,19 @@ def client(db_session):
     test_client.headers.update({"X-Pulse-Client": "1"})
     yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def authenticated_user(client, db_session):
+    """Register and authenticate a default test user, returning (user, headers)."""
+    res = client.post(
+        "/api/auth/register",
+        json={"name": "Audit User", "email": "audit_user@example.com", "password": "Password1234!", "age_confirmed": True},
+    )
+    assert res.status_code == 201
+    user_data = res.json()
+    from backend.models import User
+    user = db_session.query(User).filter(User.id == user_data["id"]).first()
+    token = res.cookies.get("pulse_session")
+    headers = {"Authorization": f"Bearer {token}", "X-Pulse-Client": "1"} if token else {"X-Pulse-Client": "1"}
+    return user, headers

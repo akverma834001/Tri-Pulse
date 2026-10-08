@@ -60,6 +60,7 @@ class UserSettings(Base):
     quiet_hours_end = Column(String(10), default="07:00", nullable=False)
     sitting_reminder_minutes = Column(Integer, nullable=True)
     baselines_reset_at = Column(DateTime(timezone=True), nullable=True)
+    baseline_version = Column(Integer, default=1, nullable=False)
 
     user = relationship("User", back_populates="settings")
 
@@ -106,6 +107,8 @@ class Order(Base):
     source = Column(String(50), default="unknown", nullable=False)
     food_categories = Column(Text, default="[]", nullable=False)  # JSON serialized list
     date_assumed = Column(Boolean, default=False, nullable=False)
+    date_confidence = Column(String(20), default="HIGH", nullable=False)  # HIGH, LOW
+    order_status = Column(String(50), default="DELIVERED", nullable=False)  # PLACED, CONFIRMED, DELIVERED, CANCELLED, REFUNDED, UNKNOWN
     parse_confidence = Column(Float, default=1.0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
@@ -158,6 +161,7 @@ class PulseSession(Base):
     signal_quality = Column(Float, nullable=False)  # 0.0 to 1.0
     source = Column(String(50), default="manual", nullable=False)  # camera, manual, demo
     client_uuid = Column(String(64), nullable=False)
+    is_baseline_eligible = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     user = relationship("User", back_populates="pulse_sessions")
@@ -182,6 +186,7 @@ class BehaviorSession(Base):
     error_rate = Column(Float, nullable=False)
     source = Column(String(50), default="web_checkin", nullable=False)
     client_uuid = Column(String(64), nullable=False)
+    is_baseline_eligible = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     user = relationship("User", back_populates="behavior_sessions")
@@ -208,6 +213,8 @@ class Intervention(Base):
     ended_at = Column(DateTime(timezone=True), nullable=True)
     actual_seconds = Column(Integer, nullable=True)
     feeling_after = Column(String(50), nullable=True)  # calmer, same, worse
+    pre_pulse = Column(Float, nullable=True)
+    post_pulse = Column(Float, nullable=True)
 
     user = relationship("User", back_populates="interventions")
     insight = relationship("Insight", back_populates="interventions")
@@ -235,6 +242,8 @@ class Insight(Base):
     evidence = Column(Text, default="[]", nullable=False)  # JSON serialized list of strings
     recommended_action = Column(Text, nullable=False)
     status = Column(String(50), default="new", nullable=False)  # new, seen, dismissed, resolved
+    confidence = Column(String(20), default="MODERATE", nullable=False)  # LOW, MODERATE, HIGH
+    pattern_engine_version = Column(String(20), default="2.0", nullable=False)
     is_supporting = Column(Boolean, default=False, nullable=False)
     feedback = Column(String(50), nullable=True)  # useful, not_useful
 

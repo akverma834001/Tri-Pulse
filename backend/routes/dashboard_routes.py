@@ -110,21 +110,24 @@ def get_dashboard(
             "age": "No readings yet",
         }
 
-    # Late-night orders in last 7 days
+    # Late-night orders in last 7 days (exclude cancelled and refunded)
     window_7d = now - timedelta(days=7)
     orders_7d = (
         db.query(Order)
         .filter(Order.user_id == user.id, Order.event_time >= window_7d)
         .all()
     )
+    valid_orders_7d = [
+        o for o in orders_7d if getattr(o, "order_status", "DELIVERED") not in ("CANCELLED", "REFUNDED")
+    ]
     ln_orders_7d = [
-        o for o in orders_7d if is_late_night_time(o.event_time, ln_start, ln_end, tz)
+        o for o in valid_orders_7d if is_late_night_time(o.event_time, ln_start, ln_end, tz)
     ]
     avg_ln_time = calculate_circular_average_order_time(ln_orders_7d, tz)
     orders_state = {
         "count": len(ln_orders_7d),
         "avg_time": avg_ln_time,
-        "has_data": len(orders_7d) > 0,
+        "has_data": len(valid_orders_7d) > 0,
     }
 
     # Baselines
@@ -152,6 +155,10 @@ def get_dashboard(
 
     for ins in insights:
         if ins.status != "resolved":
+            # Safety safeguard (Section 3): Never display URGENT_BP if there is no current urgent reading
+            if ins.rule_id == "URGENT_BP":
+                if not latest_bp or not (latest_bp.systolic > 180 or latest_bp.diastolic > 120):
+                    continue
             if not ins.is_supporting and primary_ins is None:
                 primary_ins = ins
             else:
@@ -204,6 +211,7 @@ def get_dashboard(
                 session_count=b.session_count,
                 required_sessions=b.required_sessions,
                 is_ready=b.is_ready,
+                status=getattr(b, "status", "INSUFFICIENT_DATA"),
                 explanation=b.explanation,
             )
         )
@@ -223,8 +231,8 @@ def get_dashboard(
         b_end = now - timedelta(days=b_idx * 7)
         b_start = now - timedelta(days=(b_idx + 1) * 7)
 
-        # Orders in bucket
-        b_orders = [o for o in all_user_orders if b_start <= ensure_utc(o.event_time) < b_end]
+        # Orders in bucket (exclude cancelled/refunded)
+        b_orders = [o for o in all_user_orders if b_start <= ensure_utc(o.event_time) < b_end and getattr(o, "order_status", "DELIVERED") not in ("CANCELLED", "REFUNDED")]
         b_ln_orders = [o for o in b_orders if is_late_night_time(o.event_time, ln_start, ln_end, tz)]
 
         # BP in bucket
@@ -256,11 +264,16 @@ def get_dashboard(
                 window_start=b_start,
                 window_end=b_end,
                 late_night_orders=len(b_ln_orders),
+                has_order_data=len(b_orders) > 0,
                 avg_bp_systolic=avg_sys,
                 avg_bp_diastolic=avg_dia,
+                has_bp_data=len(b_bps) > 0,
                 avg_pulse=avg_pulse,
+                has_pulse_data=len(b_pulses) > 0,
                 typing_deviation_pct=typing_dev,
+                has_typing_data=len(b_typings) > 0,
                 intervention_completion_rate=interv_rate,
+                has_intervention_data=len(b_intervs) > 0,
             )
         )
 

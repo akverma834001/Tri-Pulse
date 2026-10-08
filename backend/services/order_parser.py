@@ -251,6 +251,25 @@ def parse_order_text(
     # Late night check
     late_night = is_late_night_time(utc_event_dt, late_night_start, late_night_end, user_tz_name)
 
+    # Status Extraction: Precedence: CANCELLED / REFUNDED > DELIVERED > CONFIRMED > PLACED
+    lower_text = text.lower()
+    if re.search(r"\b(cancelled|canceled)\b", lower_text):
+        order_status = "CANCELLED"
+    elif re.search(r"\b(refunded|refund)\b", lower_text):
+        order_status = "REFUNDED"
+    elif re.search(r"\b(delivered|arrived|received)\b", lower_text):
+        order_status = "DELIVERED"
+    elif re.search(r"\b(on the way|out for delivery|confirmed|preparing)\b", lower_text):
+        order_status = "CONFIRMED"
+    elif re.search(r"\b(placed|order received|order placed)\b", lower_text):
+        order_status = "PLACED"
+    elif re.search(r"\b(failed|rejected)\b", lower_text):
+        order_status = "CANCELLED"
+    else:
+        order_status = "DELIVERED" if (restaurant_val != "unknown" or items or amount_val is not None) else "UNKNOWN"
+
+    date_confidence = "LOW" if date_assumed else "HIGH"
+
     return {
         "restaurant": {"value": restaurant_val, "found": restaurant_val != "unknown"},
         "food_items": {"value": items, "found": len(items) > 0},
@@ -259,6 +278,8 @@ def parse_order_text(
         "delivery_date": {"value": parsed_date.isoformat(), "found": not date_assumed},
         "source": {"value": found_platform, "found": found_platform != "unknown"},
         "date_assumed": date_assumed,
+        "date_confidence": date_confidence,
+        "order_status": order_status,
         "parse_confidence": confidence,
         "suggested_categories": categories,
         "is_late_night": late_night,

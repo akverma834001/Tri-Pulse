@@ -99,6 +99,13 @@ export class TypingTaskManager {
     const actualDurationSec = Math.round((performance.now() - this.startTime) / 1000.0);
     const clientUuid = 'type-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
 
+    if (actualDurationSec < 30 || this.keystrokes < 40) {
+      this.inputEl.value = '';
+      this.inputEl.disabled = false;
+      this.resetStats();
+      throw new Error(`Typing session too short (${this.keystrokes} keystrokes, ${actualDurationSec}s). A minimum of 40 keystrokes and 30 seconds is required.`);
+    }
+
     const payload = {
       client_uuid: clientUuid,
       duration_seconds: actualDurationSec,

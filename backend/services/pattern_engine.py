@@ -80,14 +80,17 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
     food_nudges = settings.food_nudges_enabled if settings else True
 
     # --- 1. Gather Signals ---
-    # Orders
+    # Orders (Exclude CANCELLED and REFUNDED orders from food routine counts)
     orders_7d = (
         db.query(Order)
         .filter(Order.user_id == user_id, Order.event_time >= window_7d_start)
         .all()
     )
+    valid_orders_7d = [
+        o for o in orders_7d if getattr(o, "order_status", "DELIVERED") not in ("CANCELLED", "REFUNDED")
+    ]
     late_night_orders = [
-        o for o in orders_7d if is_late_night_time(o.event_time, ln_start, ln_end, tz)
+        o for o in valid_orders_7d if is_late_night_time(o.event_time, ln_start, ln_end, tz)
     ]
     late_night_count = len(late_night_orders)
     avg_order_time_str = calculate_circular_average_order_time(late_night_orders, tz)
@@ -98,6 +101,7 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
     typing_b = baselines["typing"]
     bp_b = baselines["bp"]
 
+    # Layer B - Personal baseline signals
     # Pulse above baseline check: >= +8% AND >= +5 BPM
     pulse_is_above = False
     pulse_diff = 0.0
@@ -121,6 +125,7 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
         if typing_b.deviation_pct <= RULE_TYPING_DEVIATION_PERCENT:
             typing_is_below = True
 
+    # Layer A - Immediate rule-based signals (works without baseline)
     # BP Rule B check: >= 2 different calendar days in 14 days whose daily-average BP is elevated or worse
     bp_14d = (
         db.query(BloodPressure)
@@ -142,10 +147,38 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
 
     bp_is_repeated_elevated = elevated_bp_days_count >= RULE_B_MIN_DAYS
 
+    # Check for active urgent BP in last 24h
+    window_24h_start = now - timedelta(hours=24)
+    latest_urgent_bp = (
+        db.query(BloodPressure)
+        .filter(
+            BloodPressure.user_id == user_id,
+            BloodPressure.event_time >= window_24h_start,
+            (BloodPressure.systolic > 180) | (BloodPressure.diastolic > 120),
+        )
+        .order_by(BloodPressure.event_time.desc())
+        .first()
+    )
+
     # --- 2. Evaluate Rules ---
     rule_fires: Dict[str, Tuple[bool, List[str]]] = {}
 
-    # Rule A: >= 3 late night orders in 7 days
+    # Urgent BP: only active if an urgent reading actually occurred in the last 24h
+    if latest_urgent_bp:
+        rule_fires["URGENT_BP"] = (
+            True,
+            [f"Very high reading of {latest_urgent_bp.systolic}/{latest_urgent_bp.diastolic} mmHg recorded in the last 24 hours"],
+        )
+    else:
+        rule_fires["URGENT_BP"] = (False, [])
+        # Auto-resolve any existing URGENT_BP insights for this user
+        db.query(Insight).filter(
+            Insight.user_id == user_id,
+            Insight.rule_id == "URGENT_BP",
+            Insight.status != "resolved",
+        ).update({"status": "resolved", "updated_at": now})
+
+    # Layer A: Rule A: >= 3 late night orders in 7 days
     if food_nudges and late_night_count >= RULE_A_LATE_NIGHT_THRESHOLD:
         evidence = [f"{late_night_count} late-night orders in 7 days"]
         if avg_order_time_str:
@@ -154,7 +187,7 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
     else:
         rule_fires["A"] = (False, [])
 
-    # Rule B: >= 2 different calendar days in 14 days elevated BP
+    # Layer A: Rule B: >= 2 different calendar days in 14 days elevated BP
     if bp_is_repeated_elevated:
         rule_fires["B"] = (
             True,
@@ -166,7 +199,7 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
     else:
         rule_fires["B"] = (False, [])
 
-    # Rule C: >= 1 late-night order AND typing below baseline
+    # Layer B: Rule C: >= 1 late-night order AND typing below baseline
     if food_nudges and late_night_count >= 1 and typing_is_below:
         rule_fires["C"] = (
             True,
@@ -178,7 +211,7 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
     else:
         rule_fires["C"] = (False, [])
 
-    # Rule D: >= 1 late-night order AND pulse above baseline
+    # Layer B: Rule D: >= 1 late-night order AND pulse above baseline
     if food_nudges and late_night_count >= 1 and pulse_is_above:
         rule_fires["D"] = (
             True,
@@ -190,19 +223,19 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
     else:
         rule_fires["D"] = (False, [])
 
-    # Rule E: pulse above baseline
+    # Layer B: Rule E: pulse above baseline
     if pulse_is_above:
         rule_fires["E"] = (
             True,
             [
                 f"Pulse {pulse_b.current_val:.0f} vs baseline {pulse_b.baseline_val:.0f} BPM (+{pulse_b.deviation_pct:.0f}%, +{pulse_diff:.0f} BPM)",
-                "Elevated physiological rhythm compared to frozen baseline",
+                "Elevated physiological rhythm compared to personal baseline",
             ],
         )
     else:
         rule_fires["E"] = (False, [])
 
-    # Rule F: typing below baseline
+    # Layer B: Rule F: typing below baseline
     if typing_is_below:
         rule_fires["F"] = (
             True,
@@ -214,7 +247,7 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
     else:
         rule_fires["F"] = (False, [])
 
-    # Rule G: Rule A AND at least one of {D/E, C/F, B}
+    # Rule G: Composite: Rule A AND at least one supporting signal
     rule_a_fired = rule_fires["A"][0]
     supporting_signals = []
     if pulse_is_above:
@@ -259,6 +292,14 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
             .first()
         )
 
+        # Confidence based on evidence count
+        if len(evidence_list) >= 3 or rule_id in ("G", "URGENT_BP"):
+            conf_val = "HIGH"
+        elif len(evidence_list) == 2:
+            conf_val = "MODERATE"
+        else:
+            conf_val = "LOW"
+
         if fires:
             tmpl = INSIGHT_TEMPLATES[rule_id]
             severity = rule_g_severity if rule_id == "G" else tmpl["severity"]
@@ -282,6 +323,8 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
                     evidence=json.dumps(evidence_list),
                     recommended_action=tmpl["recommended_action"],
                     status="new",
+                    confidence=conf_val,
+                    pattern_engine_version="2.0",
                     is_supporting=is_supp,
                 )
                 db.add(ins)
@@ -290,6 +333,8 @@ def run_pattern_engine_for_user(user_id: int, db: Session) -> List[Insight]:
                 existing.updated_at = now
                 existing.evidence = json.dumps(evidence_list)
                 existing.severity = severity
+                existing.confidence = conf_val
+                existing.pattern_engine_version = "2.0"
                 existing.is_supporting = is_supp
                 if existing.status == "resolved":
                     existing.status = "new"

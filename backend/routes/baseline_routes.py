@@ -32,6 +32,7 @@ def get_user_baselines(
                 session_count=b.session_count,
                 required_sessions=b.required_sessions,
                 is_ready=b.is_ready,
+                status=getattr(b, "status", "INSUFFICIENT_DATA"),
                 explanation=b.explanation,
             )
         )

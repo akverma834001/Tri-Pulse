@@ -149,8 +149,10 @@
     <!-- Empty State -->
     <div id="insights-empty" class="card empty-state" style="display: none;">
       <div class="empty-state-icon">💡</div>
-      <h2 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem;">Not enough data yet</h2>
-      <p style="color: var(--text-secondary); margin-bottom: 1.25rem;">Continue using Pulse to establish your personal baseline (at least 5 sessions per signal). Once enough data is recorded, transparent pattern observations will appear here.</p>
+      <h2 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem;">No patterns currently detected</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 1.25rem;">
+        Immediate rule-based signals (like repeated late-night orders or blood pressure readings) appear as soon as data is logged. Personal deviation patterns unlock as your rolling baselines build.
+      </p>
       <a href="/checkin.html" class="btn btn-primary">Start a Check-in</a>
     </div>
   </main>
@@ -179,12 +181,20 @@
     }
 
     async function loadInsights() {
+      const container = document.getElementById('insights-container');
+      const emptyState = document.getElementById('insights-empty');
       try {
         const insights = await api.get('/api/insights');
         renderInsights(insights);
       } catch (err) {
-        showToast(err.message || 'Failed to load insights.', 'error');
-        document.getElementById('insights-loading').style.display = 'none';
+        container.innerHTML = `
+          <div class="card" style="text-align: center; padding: 2rem; color: var(--accent-rose);">
+            <h3>Unable to evaluate patterns</h3>
+            <p style="color: var(--text-secondary); margin: 0.5rem 0 1rem;">${escapeHtml(err.message || 'Error communicating with pattern engine.')}</p>
+            <button onclick="window.location.reload()" class="btn btn-secondary btn-sm">Retry</button>
+          </div>
+        `;
+        emptyState.style.display = 'none';
       }
     }
 
@@ -207,6 +217,7 @@
         card.id = `insight-${ins.id}`;
 
         const sevInfo = severityMap[ins.severity] || { label: ins.severity, class: 'badge-info' };
+        const confLevel = ins.confidence || 'MODERATE';
 
         const evidenceItems = (ins.evidence || []).map(e => `<li>${escapeHtml(e)}</li>`).join('');
 
@@ -220,7 +231,10 @@
                 ${escapeHtml(ins.title)}
               </h2>
             </div>
-            <span class="badge ${sevInfo.class}">${sevInfo.label}</span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span class="badge badge-info" style="font-size: 0.72rem;">${escapeHtml(confLevel)} CONFIDENCE</span>
+              <span class="badge ${sevInfo.class}">${sevInfo.label}</span>
+            </div>
           </div>
 
           <p style="color: var(--text-primary); font-size: 0.95rem; line-height: 1.5; margin-bottom: 0.75rem;">
@@ -243,8 +257,11 @@
               <span>🔍 Why am I seeing this?</span>
             </button>
             <div class="why-content" style="display: none;">
-              <div><strong>Fired Rule:</strong> <code>${escapeHtml(ins.rule_id)}</code></div>
-              <div style="margin-top: 0.5rem;"><strong>Supporting Signal Evidence:</strong></div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <div><strong>Fired Rule:</strong> <code>${escapeHtml(ins.rule_id)}</code></div>
+                <div><strong>Engine:</strong> v${escapeHtml(ins.pattern_engine_version || '2.0')}</div>
+              </div>
+              <div><strong>Supporting Signal Evidence:</strong></div>
               <ul class="evidence-list">
                 ${evidenceItems || '<li>Signals matched the baseline threshold criteria.</li>'}
               </ul>

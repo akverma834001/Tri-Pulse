@@ -11,7 +11,7 @@ from backend.models import User, BloodPressure, Insight
 from backend.schemas import BPCreate, BPUpdate, BPResponse
 from backend.auth import get_current_user
 from backend.consent import require_consents
-from backend.services.bp_classifier import validate_bp_reading, classify_blood_pressure
+from backend.services.bp_classifier import validate_bp_reading, classify_blood_pressure, get_bp_state
 from backend.services.event_service import record_timeline_event, delete_timeline_event
 from backend.copy import INSIGHT_TEMPLATES
 from backend.config import BP_DUPLICATE_WINDOW_MINUTES
@@ -31,6 +31,7 @@ def _to_bp_response(bp: BloodPressure) -> BPResponse:
         pulse_optional=bp.pulse_optional,
         category=category,
         category_label=label,
+        state=get_bp_state(category),
         source=bp.source,
         created_at=bp.created_at,
         urgent_alert=is_urgent,
@@ -214,6 +215,34 @@ def delete_bp_reading(
     delete_timeline_event(db, user.id, "blood_pressure", bp.id)
     db.delete(bp)
     db.commit()
+
+    # If user has no urgent BP reading in the last 24h, resolve any URGENT_BP insight
+    now = get_clock().now()
+    cutoff_24h = now - timedelta(hours=24)
+    has_urgent = (
+        db.query(BloodPressure)
+        .filter(
+            BloodPressure.user_id == user.id,
+            BloodPressure.event_time >= cutoff_24h,
+            (BloodPressure.systolic > 180) | (BloodPressure.diastolic > 120),
+        )
+        .first()
+        is not None
+    )
+    if not has_urgent:
+        urgent_insights = (
+            db.query(Insight)
+            .filter(
+                Insight.user_id == user.id,
+                Insight.rule_id == "URGENT_BP",
+                Insight.status != "resolved",
+            )
+            .all()
+        )
+        for u_ins in urgent_insights:
+            u_ins.status = "resolved"
+            u_ins.updated_at = now
+        db.commit()
 
     _trigger_pipeline(user.id, db)
 

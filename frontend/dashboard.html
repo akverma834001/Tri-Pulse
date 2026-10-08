@@ -95,7 +95,10 @@
       <div id="primary-insight-card" class="card insight-hero" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.5rem;">
           <h2 id="primary-insight-title" class="card-title"></h2>
-          <span id="primary-insight-badge" class="badge"></span>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <span id="primary-insight-confidence" class="badge badge-info" style="font-size: 0.75rem;"></span>
+            <span id="primary-insight-badge" class="badge"></span>
+          </div>
         </div>
         <p id="primary-insight-explanation" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-primary);"></p>
 
@@ -185,17 +188,40 @@
 
     await setupAppLayout('dashboard');
 
-    try {
-      const data = await api.get('/api/dashboard');
-      renderDashboard(data);
-    } catch (err) {
-      showToast(err.message, 'error');
+    let refreshTimer = null;
+
+    async function loadData() {
+      try {
+        const data = await api.get('/api/dashboard');
+        renderDashboard(data);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
     }
+
+    await loadData();
+
+    // Auto-refresh when user returns to the tab or after actions (Section 57)
+    window.addEventListener('focus', () => {
+      loadData();
+    });
 
     function renderDashboard(data) {
       const { today_state, primary_insight, supporting_insights, recommended_action, onboarding, baseline_progress, weekly_trends } = data;
 
-      // 1. Today State
+      // 0. Urgent BP Alert Safety (Section 3 & 4)
+      // IF no BP readings: hide urgent BP alert
+      // IF BP exists: evaluate latest valid BP: IF systolic > 180 OR diastolic > 120: show urgent alert
+      const urgentAlertContainer = document.getElementById('urgent-alert-container');
+      const urgentAlertText = document.getElementById('urgent-alert-text');
+      if (today_state.bp && today_state.bp.has_data && (today_state.bp.systolic > 180 || today_state.bp.diastolic > 120)) {
+        urgentAlertContainer.style.display = 'block';
+        urgentAlertText.textContent = `Latest reading (${today_state.bp.systolic}/${today_state.bp.diastolic} mmHg) is very high. Rest quietly and recheck. If it remains very high or you experience symptoms, seek urgent medical care.`;
+      } else {
+        urgentAlertContainer.style.display = 'none';
+      }
+
+      // 1. Today State (Section 62 & 28: Never interpret missing data as zero or abnormal)
       // Pulse
       const pulseTileVal = document.getElementById('tile-pulse-val');
       const pulseTileMeta = document.getElementById('tile-pulse-meta');
@@ -203,7 +229,7 @@
         pulseTileVal.textContent = `${Math.round(today_state.pulse.bpm)} BPM`;
         pulseTileMeta.textContent = today_state.pulse.age;
       } else {
-        pulseTileVal.textContent = '--';
+        pulseTileVal.textContent = 'No data';
         pulseTileMeta.innerHTML = '<a href="/checkin.html?tab=pulse" style="color:var(--accent-cyan);">Check pulse</a>';
       }
 
@@ -214,11 +240,11 @@
         bpTileVal.textContent = `${today_state.bp.systolic}/${today_state.bp.diastolic}`;
         bpTileMeta.textContent = `${today_state.bp.category_label} · ${today_state.bp.age}`;
       } else {
-        bpTileVal.textContent = '--/--';
+        bpTileVal.textContent = 'No data';
         bpTileMeta.innerHTML = '<a href="/checkin.html?tab=bp" style="color:var(--accent-cyan);">Add BP</a>';
       }
 
-      // Orders
+      // Orders (Distinguish 0 late night orders from no orders at all)
       const ordersTileVal = document.getElementById('tile-orders-val');
       const ordersTileMeta = document.getElementById('tile-orders-meta');
       if (today_state.late_night_orders.has_data) {
@@ -227,7 +253,7 @@
           ? `Avg time: ${today_state.late_night_orders.avg_time}`
           : 'No late-night orders';
       } else {
-        ordersTileVal.textContent = '0';
+        ordersTileVal.textContent = 'No data';
         ordersTileMeta.innerHTML = '<a href="/checkin.html?tab=order" style="color:var(--accent-cyan);">Add receipt</a>';
       }
 
@@ -240,7 +266,7 @@
         typingTileVal.textContent = dev !== null ? `${sign}${dev}%` : `${Math.round(today_state.typing.current_wpm)} WPM`;
         typingTileMeta.textContent = today_state.typing.status_text;
       } else {
-        typingTileVal.textContent = '--';
+        typingTileVal.textContent = 'No data';
         typingTileMeta.innerHTML = '<a href="/checkin.html?tab=typing" style="color:var(--accent-cyan);">Check typing</a>';
       }
 
@@ -266,29 +292,42 @@
         onbContainer.style.display = 'none';
       }
 
-      // 3. Primary Insight
+      // 3. Primary Insight (Section 3 Safeguard: Filter out contradictory URGENT_BP if no urgent BP exists)
+      let activePrimary = primary_insight;
+      if (activePrimary && activePrimary.rule_id === 'URGENT_BP') {
+        if (!today_state.bp || !today_state.bp.has_data || (today_state.bp.systolic <= 180 && today_state.bp.diastolic <= 120)) {
+          activePrimary = null;
+        }
+      }
+
       const primaryCard = document.getElementById('primary-insight-card');
       const noInsightsCard = document.getElementById('no-insights-card');
 
-      if (primary_insight) {
+      if (activePrimary) {
         noInsightsCard.style.display = 'none';
         primaryCard.style.display = 'block';
 
-        if (primary_insight.severity === 'urgent') {
+        if (activePrimary.severity === 'urgent') {
           primaryCard.className = 'card insight-urgent';
         } else {
           primaryCard.className = 'card insight-hero';
         }
 
-        document.getElementById('primary-insight-title').textContent = primary_insight.title;
+        document.getElementById('primary-insight-title').textContent = activePrimary.title;
         const badge = document.getElementById('primary-insight-badge');
-        badge.className = `badge badge-${primary_insight.severity}`;
-        badge.textContent = primary_insight.severity;
+        badge.className = `badge badge-${activePrimary.severity}`;
+        badge.textContent = activePrimary.severity;
 
-        document.getElementById('primary-insight-explanation').textContent = primary_insight.explanation;
+        const confBadge = document.getElementById('primary-insight-confidence');
+        if (confBadge) {
+          confBadge.className = `badge badge-${activePrimary.confidence === 'HIGH' ? 'normal' : 'info'}`;
+          confBadge.textContent = `${activePrimary.confidence} CONFIDENCE`;
+        }
+
+        document.getElementById('primary-insight-explanation').textContent = activePrimary.explanation;
 
         const evList = document.getElementById('primary-insight-evidence');
-        evList.innerHTML = primary_insight.evidence.map(ev => `<li>${ev}</li>`).join('');
+        evList.innerHTML = activePrimary.evidence.map(ev => `<li>${ev}</li>`).join('');
 
         // Recommended Action
         const actionBox = document.getElementById('recommended-action-box');
@@ -300,7 +339,7 @@
             window.location.href = `/intervention.html?type=${recommended_action.intervention_type}&insight_id=${recommended_action.insight_id || ''}`;
           };
         } else {
-          document.getElementById('recommended-action-title').textContent = primary_insight.recommended_action;
+          document.getElementById('recommended-action-title').textContent = activePrimary.recommended_action;
           actionBtn.textContent = 'View Insights';
           actionBtn.onclick = () => { window.location.href = '/insights.html'; };
         }
@@ -311,17 +350,28 @@
 
       // 4. Supporting Signals
       const suppCard = document.getElementById('supporting-signals-card');
-      if (supporting_insights && supporting_insights.length > 0) {
+      // Filter out any invalid URGENT_BP in supporting insights too
+      const validSupporting = (supporting_insights || []).filter(s => {
+        if (s.rule_id === 'URGENT_BP') {
+          return today_state.bp && today_state.bp.has_data && (today_state.bp.systolic > 180 || today_state.bp.diastolic > 120);
+        }
+        return true;
+      });
+
+      if (validSupporting.length > 0) {
         suppCard.style.display = 'block';
-        document.getElementById('supporting-signals-summary').textContent = `More signals (${supporting_insights.length})`;
+        document.getElementById('supporting-signals-summary').textContent = `More signals (${validSupporting.length})`;
         const suppList = document.getElementById('supporting-signals-list');
-        suppList.innerHTML = supporting_insights.map(s => `
+        suppList.innerHTML = validSupporting.map(s => `
           <div style="background:var(--bg-surface); padding:0.75rem 1rem; border-radius:var(--radius-md); display:flex; justify-content:space-between; align-items:center;">
             <div>
               <div style="font-weight:600; font-size:0.95rem;">${s.title}</div>
               <div style="font-size:0.85rem; color:var(--text-secondary);">${s.explanation}</div>
             </div>
-            <span class="badge badge-${s.severity}">${s.severity}</span>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+              <span class="badge badge-info" style="font-size:0.7rem;">${s.confidence || 'MODERATE'}</span>
+              <span class="badge badge-${s.severity}">${s.severity}</span>
+            </div>
           </div>
         `).join('');
       } else {
@@ -330,33 +380,36 @@
 
       // 5. Baseline Progress
       const baseGrid = document.getElementById('baselines-grid');
-      baseGrid.innerHTML = baseline_progress.map(b => `
+      baseGrid.innerHTML = baseline_progress.map(b => {
+        const statusLabel = b.status ? b.status.replace(/_/g, ' ') : (b.is_ready ? 'ESTABLISHED' : 'INSUFFICIENT DATA');
+        return `
         <div class="card" style="padding:1.25rem; margin-bottom:0;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
             <div>
               <div style="font-weight:600; font-size:1rem;">${b.name}</div>
               <div style="font-size:0.8rem; color:var(--text-muted);">${b.explanation}</div>
             </div>
-            <span class="badge ${b.is_ready ? 'badge-normal' : 'badge-info'}">
-              ${b.session_count} of ${b.required_sessions} sessions
+            <span class="badge ${b.is_ready ? 'badge-normal' : (b.status === 'RECALIBRATING' ? 'badge-warning' : 'badge-info')}">
+              ${statusLabel} · ${b.session_count}/${b.required_sessions}
             </span>
           </div>
           <div class="progress-bar-container" style="margin:0.5rem 0 0;">
             <div class="progress-bar-fill" style="width:${Math.min(100, (b.session_count / b.required_sessions) * 100)}%;"></div>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
 
-      // 6. Weekly Trends
+      // 6. Weekly Trends (Section 27 & 28: Never show misleading zeroes or dashes when data is missing)
       const tbody = document.getElementById('trends-table-body');
       tbody.innerHTML = weekly_trends.map(t => `
         <tr style="border-bottom:1px solid var(--border-subtle);">
           <td style="padding:0.75rem 0.5rem; font-weight:600;">${t.bucket_label}</td>
-          <td style="padding:0.75rem 0.5rem;">${t.late_night_orders}</td>
-          <td style="padding:0.75rem 0.5rem;">${t.avg_bp_systolic ? `${t.avg_bp_systolic}/${t.avg_bp_diastolic} mmHg` : '--'}</td>
-          <td style="padding:0.75rem 0.5rem;">${t.avg_pulse ? `${t.avg_pulse} BPM` : '--'}</td>
-          <td style="padding:0.75rem 0.5rem;">${t.typing_deviation_pct !== null ? `${t.typing_deviation_pct > 0 ? '+' : ''}${t.typing_deviation_pct}%` : '--'}</td>
-          <td style="padding:0.75rem 0.5rem;">${t.intervention_completion_rate !== null ? `${Math.round(t.intervention_completion_rate * 100)}%` : '--'}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.has_order_data ? t.late_night_orders : '<span style="color:var(--text-muted);">No data</span>'}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.has_bp_data && t.avg_bp_systolic ? `${t.avg_bp_systolic}/${t.avg_bp_diastolic} mmHg` : '<span style="color:var(--text-muted);">No data</span>'}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.has_pulse_data && t.avg_pulse ? `${t.avg_pulse} BPM` : '<span style="color:var(--text-muted);">No data</span>'}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.has_typing_data && t.typing_deviation_pct !== null ? `${t.typing_deviation_pct > 0 ? '+' : ''}${t.typing_deviation_pct}%` : '<span style="color:var(--text-muted);">No data</span>'}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.has_intervention_data && t.intervention_completion_rate !== null ? `${Math.round(t.intervention_completion_rate * 100)}%` : '<span style="color:var(--text-muted);">No data</span>'}</td>
         </tr>
       `).join('');
     }

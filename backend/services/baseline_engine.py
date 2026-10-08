@@ -39,6 +39,7 @@ class BaselineSummary:
         current_val: Optional[float],
         session_count: int,
         required_sessions: int = BASELINE_REQUIRED_SESSIONS,
+        is_recalibrating: bool = False,
     ):
         self.signal_key = signal_key
         self.name = name
@@ -49,12 +50,26 @@ class BaselineSummary:
         self.required_sessions = required_sessions
         self.is_ready = session_count >= required_sessions and baseline_val is not None
 
+        # Status: NOT_STARTED, INSUFFICIENT_DATA, ESTABLISHED, RECALIBRATING
+        if is_recalibrating and not self.is_ready:
+            self.status = "RECALIBRATING"
+        elif session_count == 0:
+            self.status = "NOT_STARTED"
+        elif not self.is_ready:
+            self.status = "INSUFFICIENT_DATA"
+        else:
+            self.status = "ESTABLISHED"
+
         if self.is_ready and current_val is not None and baseline_val is not None and baseline_val > 0:
             self.deviation_pct = round(((current_val - baseline_val) / baseline_val) * 100.0, 1)
         else:
             self.deviation_pct = None
 
-        if not self.is_ready:
+        if self.status == "NOT_STARTED":
+            self.explanation = "No sessions recorded yet"
+        elif self.status == "RECALIBRATING":
+            self.explanation = f"Recalibrating baseline ({min(session_count, required_sessions)} of {required_sessions} new sessions)"
+        elif not self.is_ready:
             self.explanation = f"Baseline building ({min(session_count, required_sessions)} of {required_sessions} sessions)"
         elif self.current_val is None:
             self.explanation = "Need at least 2 sessions in the last 7 days to evaluate trend"
@@ -70,28 +85,40 @@ def get_user_reset_timestamp(user_id: int, db: Session) -> Optional[datetime]:
     return settings.baselines_reset_at if settings else None
 
 
-def compute_frozen_baseline(values: List[float], required_count: int = BASELINE_REQUIRED_SESSIONS) -> Optional[float]:
-    """Compute median of first N sessions."""
+def compute_rolling_baseline(values: List[float], required_count: int = BASELINE_REQUIRED_SESSIONS, max_rolling: int = 20) -> Optional[float]:
+    """Compute baseline as median of initial N sessions, moving to rolling median over recent valid sessions.
+    (Section 9: Initial baseline: first 5 valid sessions; after baseline: rolling median over recent valid sessions).
+    """
     if len(values) < required_count:
         return None
-    first_n = values[:required_count]
-    return round(float(np.median(first_n)), 1)
+    # Initial baseline phase uses the established first 5 valid sessions
+    if len(values) < 15:
+        return round(float(np.median(values[:required_count])), 1)
+    # Extended history uses rolling median over recent valid sessions (up to max_rolling)
+    recent = values[-max_rolling:]
+    return round(float(np.median(recent)), 1)
+
+
+def compute_frozen_baseline(values: List[float], required_count: int = BASELINE_REQUIRED_SESSIONS) -> Optional[float]:
+    """Alias for backwards compatibility with rolling calculation."""
+    return compute_rolling_baseline(values, required_count)
 
 
 def get_or_calculate_baselines(user_id: int, db: Session) -> Dict[str, BaselineSummary]:
-    """Calculate all frozen baselines and current 7-day values for a user."""
+    """Calculate rolling baselines and current 7-day values for a user."""
     now = get_clock().now()
     reset_at = get_user_reset_timestamp(user_id, db)
+    is_recalibrating = reset_at is not None
     window_7d = now - timedelta(days=BASELINE_CURRENT_WINDOW_DAYS)
 
-    # 1. Pulse sessions
-    pulse_q = db.query(PulseSession).filter(PulseSession.user_id == user_id)
+    # 1. Pulse sessions (only baseline-eligible sessions)
+    pulse_q = db.query(PulseSession).filter(PulseSession.user_id == user_id, PulseSession.is_baseline_eligible == True)
     if reset_at:
         pulse_q = pulse_q.filter(PulseSession.event_time >= reset_at)
     pulse_records = pulse_q.order_by(PulseSession.event_time.asc()).all()
 
     pulse_vals = [p.bpm for p in pulse_records]
-    pulse_baseline = compute_frozen_baseline(pulse_vals)
+    pulse_baseline = compute_rolling_baseline(pulse_vals)
     # Current: mean of last 7 days if >= 2 sessions
     recent_pulse = [p.bpm for p in pulse_records if ensure_utc(p.event_time) >= window_7d]
     pulse_current = (
@@ -107,16 +134,17 @@ def get_or_calculate_baselines(user_id: int, db: Session) -> Dict[str, BaselineS
         baseline_val=pulse_baseline,
         current_val=pulse_current,
         session_count=len(pulse_vals),
+        is_recalibrating=is_recalibrating,
     )
 
-    # 2. Behavior sessions
-    behav_q = db.query(BehaviorSession).filter(BehaviorSession.user_id == user_id)
+    # 2. Behavior sessions (only baseline-eligible sessions)
+    behav_q = db.query(BehaviorSession).filter(BehaviorSession.user_id == user_id, BehaviorSession.is_baseline_eligible == True)
     if reset_at:
         behav_q = behav_q.filter(BehaviorSession.event_time >= reset_at)
     behav_records = behav_q.order_by(BehaviorSession.event_time.asc()).all()
 
     wpm_vals = [b.typing_speed_wpm for b in behav_records]
-    wpm_baseline = compute_frozen_baseline(wpm_vals)
+    wpm_baseline = compute_rolling_baseline(wpm_vals)
     recent_wpm = [b.typing_speed_wpm for b in behav_records if ensure_utc(b.event_time) >= window_7d]
     wpm_current = (
         round(float(np.mean(recent_wpm)), 1)
@@ -131,6 +159,7 @@ def get_or_calculate_baselines(user_id: int, db: Session) -> Dict[str, BaselineS
         baseline_val=wpm_baseline,
         current_val=wpm_current,
         session_count=len(wpm_vals),
+        is_recalibrating=is_recalibrating,
     )
 
     # 3. Blood Pressure
@@ -141,8 +170,8 @@ def get_or_calculate_baselines(user_id: int, db: Session) -> Dict[str, BaselineS
 
     sys_vals = [float(b.systolic) for b in bp_records]
     dia_vals = [float(b.diastolic) for b in bp_records]
-    sys_baseline = compute_frozen_baseline(sys_vals)
-    dia_baseline = compute_frozen_baseline(dia_vals)
+    sys_baseline = compute_rolling_baseline(sys_vals)
+    dia_baseline = compute_rolling_baseline(dia_vals)
 
     recent_sys = [float(b.systolic) for b in bp_records if ensure_utc(b.event_time) >= window_7d]
     recent_dia = [float(b.diastolic) for b in bp_records if ensure_utc(b.event_time) >= window_7d]
@@ -156,6 +185,7 @@ def get_or_calculate_baselines(user_id: int, db: Session) -> Dict[str, BaselineS
         baseline_val=sys_baseline,
         current_val=sys_current,
         session_count=len(bp_records),
+        is_recalibrating=is_recalibrating,
     )
     # Store diastolic baseline on object
     bp_summary.dia_baseline = dia_baseline

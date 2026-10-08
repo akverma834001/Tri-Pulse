@@ -133,6 +133,21 @@
       </div>
     </div>
 
+    <!-- Demo Mode Card for MVP Evaluation (Section 35, 36, 37) -->
+    <div class="card settings-section">
+      <h2 class="card-title">Demo Scenario (MVP Evaluation)</h2>
+      <p class="card-subtitle">Load a deterministic multi-week synthetic dataset (clearly labelled: DEMO DATA — NOT REAL HEALTH DATA) to immediately preview patterns, baselines, and interventions.</p>
+
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem;">
+        <button type="button" id="btn-load-demo" class="btn btn-primary">
+          ✨ Load Demo Data
+        </button>
+        <button type="button" id="btn-reset-demo" class="btn btn-secondary">
+          🔄 Reset Demo
+        </button>
+      </div>
+    </div>
+
     <!-- Data Export Card -->
     <div class="card settings-section">
       <h2 class="card-title">Data Portability (Export)</h2>
@@ -280,6 +295,29 @@
             }
           }
         );
+      });
+
+      // Demo Mode Actions (Section 35, 36, 37)
+      document.getElementById('btn-load-demo').addEventListener('click', async () => {
+        try {
+          showToast('Loading deterministic demo scenario...', 'info');
+          await api.post('/api/demo/load');
+          showToast('Demo scenario loaded! Redirecting to dashboard...', 'success');
+          setTimeout(() => window.location.href = '/dashboard.html', 800);
+        } catch (err) {
+          showToast(err.message || 'Failed to load demo scenario.', 'error');
+        }
+      });
+
+      document.getElementById('btn-reset-demo').addEventListener('click', async () => {
+        try {
+          showToast('Resetting demo scenario...', 'info');
+          await api.post('/api/demo/reset');
+          showToast('Demo dataset reset to initial state.', 'success');
+          setTimeout(() => window.location.href = '/dashboard.html', 800);
+        } catch (err) {
+          showToast(err.message || 'Failed to reset demo.', 'error');
+        }
       });
 
       // Export data

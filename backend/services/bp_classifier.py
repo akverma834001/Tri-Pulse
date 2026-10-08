@@ -25,11 +25,29 @@ from backend.clock import get_clock
 
 
 def validate_bp_reading(
-    systolic: int,
-    diastolic: int,
-    event_time: datetime,
+    systolic: Optional[int],
+    diastolic: Optional[int],
+    event_time: Optional[datetime],
 ) -> None:
     """Validate systolic and diastolic values and event time range."""
+    if systolic is None or diastolic is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "missing_values",
+                "message": "Both systolic and diastolic readings are required.",
+            },
+        )
+
+    if systolic <= 0 or diastolic <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "invalid_reading",
+                "message": "Blood pressure readings must be positive numbers greater than 0.",
+            },
+        )
+
     if not (BP_SYSTOLIC_MIN <= systolic <= BP_SYSTOLIC_MAX):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -54,6 +72,15 @@ def validate_bp_reading(
             detail={
                 "code": "systolic_must_exceed_diastolic",
                 "message": "Systolic reading must be higher than diastolic reading.",
+            },
+        )
+
+    if event_time is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "missing_timestamp",
+                "message": "A valid timestamp is required for blood pressure readings.",
             },
         )
 
@@ -128,3 +155,19 @@ def classify_blood_pressure(systolic: int, diastolic: int) -> Tuple[str, str, bo
 
 def get_bp_helper_text() -> str:
     return BP_HELPER_TEXT
+
+
+def get_bp_state(category: Optional[str]) -> str:
+    """Map category to explicit uppercase state string."""
+    if not category:
+        return "NO_DATA"
+    mapping = {
+        "urgent": "URGENT",
+        "high": "HIGH",
+        "above_range": "HIGH",
+        "elevated": "ELEVATED",
+        "normal": "NORMAL",
+        "no_data": "NO_DATA",
+    }
+    return mapping.get(category.lower(), "INVALID")
+

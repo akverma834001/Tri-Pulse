@@ -88,6 +88,9 @@ def update_settings(
     return settings
 
 
+from backend.services.event_service import record_timeline_event
+
+
 @router.post("/recalibrate")
 def recalibrate_baselines(
     user: User = Depends(get_current_user),
@@ -99,8 +102,35 @@ def recalibrate_baselines(
         settings = UserSettings(user_id=user.id)
         db.add(settings)
     
-    settings.baselines_reset_at = get_clock().now()
+    now = get_clock().now()
+    settings.baselines_reset_at = now
+    settings.baseline_version = (settings.baseline_version or 1) + 1
+
     # Clear existing cached baselines for this user
     db.query(CachedBaseline).filter(CachedBaseline.user_id == user.id).delete()
+
+    record_timeline_event(
+        db=db,
+        user_id=user.id,
+        event_time=now,
+        event_type="baseline",
+        ref_table="user_settings",
+        ref_id=user.id,
+        summary={
+            "title": f"Baselines Recalibrated (v{settings.baseline_version})",
+            "message": "Reset baseline calculation. Next 5 sessions will establish new personal baselines.",
+        },
+    )
+
     db.commit()
-    return {"message": "Baselines marked for recalibration. Next 5 sessions will establish new baselines."}
+
+    try:
+        from backend.services.pattern_engine import run_pattern_engine_for_user
+        run_pattern_engine_for_user(user.id, db)
+    except Exception:
+        pass
+
+    return {
+        "message": f"Baselines marked for recalibration (version {settings.baseline_version}). Next 5 sessions will establish new baselines.",
+        "baseline_version": settings.baseline_version,
+    }

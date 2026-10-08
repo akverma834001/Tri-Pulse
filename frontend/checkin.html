@@ -178,17 +178,44 @@
             <span id="parse-confidence-badge" class="badge"></span>
           </div>
 
+          <div id="order-status-warning" class="alert alert-warning" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; font-size: 0.9rem;">
+            ⚠️ <strong>Order Status Notice:</strong> This order was cancelled or refunded. It will be recorded for audit history but will not be counted as a late-night food consumption event.
+          </div>
+
           <div id="date-assumed-warning" class="alert alert-warning" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; font-size: 0.9rem;">
-            ⚠️ <strong>Date assumed.</strong> The receipt specified a time but no calendar date. We assumed today in your timezone. Please verify.
+            ⚠️ <strong>Please confirm the event date:</strong> The receipt specified a time but no calendar date. We assumed today in your timezone. Please verify or change the date below before saving.
+            <div style="margin-top: 0.5rem;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer;">
+                <input type="checkbox" id="order-date-confirmed"> I confirm this date is correct
+              </label>
+            </div>
           </div>
 
           <form id="order-confirm-form">
-            <div class="form-group">
-              <label class="form-label" for="order-field-restaurant">
-                Restaurant
-                <span id="badge-restaurant" class="field-badge"></span>
-              </label>
-              <input type="text" id="order-field-restaurant" class="form-input" required>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label" for="order-field-restaurant">
+                  Restaurant
+                  <span id="badge-restaurant" class="field-badge"></span>
+                </label>
+                <input type="text" id="order-field-restaurant" class="form-input" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="order-field-status">
+                  Order Status
+                  <span id="badge-status" class="field-badge"></span>
+                </label>
+                <select id="order-field-status" class="form-input">
+                  <option value="DELIVERED">Delivered</option>
+                  <option value="CONFIRMED">Confirmed</option>
+                  <option value="PLACED">Placed</option>
+                  <option value="CANCELLED">Cancelled</option>
+                  <option value="REFUNDED">Refunded</option>
+                  <option value="UNKNOWN">Unknown</option>
+                </select>
+                <span class="form-hint">Only delivered/confirmed orders count towards late-night patterns.</span>
+              </div>
             </div>
 
             <div class="grid-2">
@@ -455,6 +482,10 @@
           return;
         }
 
+        const parseBtn = document.getElementById('btn-parse-receipt');
+        parseBtn.disabled = true;
+        parseBtn.textContent = 'Parsing...';
+
         try {
           const preview = await api.post('/api/orders/parse', { text: rawText });
           parsedOrderCache = preview;
@@ -464,6 +495,9 @@
           document.getElementById('order-field-amount').value = preview.amount !== null ? preview.amount : '';
           document.getElementById('order-field-items').value = (preview.food_items || []).join(', ');
           document.getElementById('order-field-categories').value = (preview.food_categories || []).join(', ') || 'unknown';
+          if (preview.order_status) {
+            document.getElementById('order-field-status').value = preview.order_status;
+          }
 
           // Badges
           setFieldBadge('badge-restaurant', preview.found_restaurant);
@@ -471,13 +505,25 @@
           setFieldBadge('badge-time', preview.found_time);
           setFieldBadge('badge-items', preview.found_items);
           setFieldBadge('badge-categories', (preview.food_categories || []).length > 0);
+          setFieldBadge('badge-status', !!preview.order_status);
 
-          // Date assumed notice
+          // Order status notice
+          const statusWarningEl = document.getElementById('order-status-warning');
+          if (preview.order_status === 'CANCELLED' || preview.order_status === 'REFUNDED') {
+            statusWarningEl.style.display = 'block';
+          } else {
+            statusWarningEl.style.display = 'none';
+          }
+
+          // Date assumed notice & confirmation
           const dateAssumedEl = document.getElementById('date-assumed-warning');
+          const dateConfirmCheckbox = document.getElementById('order-date-confirmed');
           if (preview.date_assumed) {
             dateAssumedEl.style.display = 'block';
+            if (dateConfirmCheckbox) dateConfirmCheckbox.checked = false;
           } else {
             dateAssumedEl.style.display = 'none';
+            if (dateConfirmCheckbox) dateConfirmCheckbox.checked = true;
           }
 
           // Parse confidence badge
@@ -496,6 +542,9 @@
           showToast('Receipt parsed. Please verify the extracted fields below.', 'info');
         } catch (err) {
           showToast(err.message || 'Failed to parse receipt text.', 'error');
+        } finally {
+          parseBtn.disabled = false;
+          parseBtn.textContent = 'Parse Receipt Preview';
         }
       });
 
@@ -515,6 +564,17 @@
       document.getElementById('order-confirm-form').addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        // Section 11: Date confirmation enforcement
+        const dateConfirmCheckbox = document.getElementById('order-date-confirmed');
+        if (parsedOrderCache && parsedOrderCache.date_assumed && dateConfirmCheckbox && !dateConfirmCheckbox.checked) {
+          showToast('Please confirm or adjust the event date before saving.', 'warning');
+          return;
+        }
+
+        const saveBtn = document.getElementById('btn-save-order');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
         const restaurant = document.getElementById('order-field-restaurant').value.trim() || 'unknown';
         const amountVal = document.getElementById('order-field-amount').value;
         const amount = amountVal ? parseFloat(amountVal) : null;
@@ -526,12 +586,15 @@
 
         const categoriesStr = document.getElementById('order-field-categories').value.trim();
         const foodCategories = categoriesStr ? categoriesStr.split(',').map(s => s.trim()).filter(Boolean) : ['unknown'];
+        const orderStatus = document.getElementById('order-field-status').value || 'DELIVERED';
 
         const payload = {
           event_time: eventTime,
           restaurant: restaurant,
           food_items: foodItems,
           amount: amount,
+          order_status: orderStatus,
+          date_confidence: (parsedOrderCache && parsedOrderCache.date_assumed) ? 'LOW' : 'HIGH',
           source: parsedOrderCache ? parsedOrderCache.source : 'unknown',
           food_categories: foodCategories,
           date_assumed: parsedOrderCache ? parsedOrderCache.date_assumed : false,
@@ -554,6 +617,9 @@
           } else {
             showToast(err.message || 'Failed to save order.', 'error');
           }
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save Confirmed Order';
         }
       });
 
@@ -562,6 +628,10 @@
       // ==========================================
       document.getElementById('bp-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        const saveBpBtn = document.getElementById('btn-save-bp');
+        saveBpBtn.disabled = true;
+        saveBpBtn.textContent = 'Saving...';
 
         const systolic = parseInt(document.getElementById('bp-systolic').value, 10);
         const diastolic = parseInt(document.getElementById('bp-diastolic').value, 10);
@@ -573,6 +643,8 @@
 
         if (diastolic >= systolic) {
           showToast('Systolic (top number) must be greater than diastolic (bottom number).', 'error');
+          saveBpBtn.disabled = false;
+          saveBpBtn.textContent = 'Save BP Reading';
           return;
         }
 
@@ -587,15 +659,17 @@
         try {
           const res = await api.post('/api/bp', payload);
 
-          // Handle urgent reading dialog
-          if (res.classification === 'urgent') {
+          // Handle urgent reading dialog (Section 3 & 6)
+          const isUrgent = res.category === 'urgent' || res.state === 'URGENT' || res.urgent_alert;
+          if (isUrgent) {
             showConfirm(
               'Urgent Reading Attention',
-              res.urgent_message || 'This reading is very high. Recheck after resting and seek urgent medical care if the reading remains very high or you have concerning symptoms.',
+              res.urgent_message || 'This reading is very high. Rest and recheck. If it remains very high or you have concerning symptoms, seek urgent medical care.',
               () => { window.location.href = '/safety.html'; }
             );
           } else {
-            showToast(`BP reading saved (${res.classification.replace('_', ' ')}).`, 'success');
+            const label = res.category_label || (res.category ? res.category.replace('_', ' ') : 'Saved');
+            showToast(`BP reading saved (${label}).`, 'success');
           }
 
           // Reset inputs but maintain focus sensibly
@@ -612,6 +686,9 @@
           } else {
             showToast(err.message || 'Failed to record blood pressure.', 'error');
           }
+        } finally {
+          saveBpBtn.disabled = false;
+          saveBpBtn.textContent = 'Save BP Reading';
         }
       });
 
@@ -649,6 +726,28 @@
                 fingerContainer.classList.remove('detected');
                 fingerText.textContent = 'Cover camera gently';
               }
+            },
+            (res) => {
+              // On complete callback
+              btnStartCamera.style.display = 'inline-block';
+              btnStopCamera.style.display = 'none';
+              progressPctEl.textContent = '100%';
+              progressFillEl.style.width = '100%';
+              timerSecEl.textContent = 'Done';
+              showToast(`Camera pulse recorded: ${res.bpm} BPM (experimental estimate)`, 'success');
+            },
+            (err) => {
+              // On error callback (Section 15 & 16)
+              btnStartCamera.style.display = 'inline-block';
+              btnStopCamera.style.display = 'none';
+              if (err.status === 422) {
+                showToast('Measurement unavailable. Please improve lighting and keep your finger still.', 'warning');
+              } else if (err.status === 403) {
+                showToast('Camera & health consent required. Please enable them in Consent settings.', 'error');
+                setTimeout(() => window.location.href = '/consent.html', 1500);
+              } else {
+                showToast(err.message || 'Measurement unavailable. Please improve lighting and keep your finger still.', 'warning');
+              }
             }
           );
 
@@ -656,15 +755,14 @@
           btnStopCamera.style.display = 'inline-block';
           showToast('Starting camera... Cover camera and flash with your fingertip.', 'info');
 
-          const result = await cameraCapture.start();
-          // Camera capture runs its loop until finish() is triggered at 30s
+          await cameraCapture.start();
         } catch (err) {
           btnStartCamera.style.display = 'inline-block';
           btnStopCamera.style.display = 'none';
           if (cameraCapture) cameraCapture.stop();
 
           if (err.status === 422) {
-            showToast('Measurement rejected. Try better lighting and keep your finger still.', 'warning');
+            showToast('Measurement unavailable. Please improve lighting and keep your finger still.', 'warning');
           } else if (err.status === 403) {
             showToast('Camera & health consent required. Please enable them in Consent settings.', 'error');
             setTimeout(() => window.location.href = '/consent.html', 1500);
@@ -700,6 +798,10 @@
 
       document.getElementById('manual-pulse-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+
         const bpm = parseInt(document.getElementById('manual-pulse-bpm').value, 10);
         const timeVal = document.getElementById('manual-pulse-time').value;
         const eventTime = new Date(timeVal).toISOString();
@@ -714,7 +816,7 @@
             source: 'manual',
             client_uuid: clientUuid
           });
-          showToast(`Manual pulse reading saved: ${res.bpm} BPM`, 'success');
+          showToast(`Manual pulse reading saved: ${res.bpm} BPM (user-entered)`, 'success');
           document.getElementById('manual-pulse-bpm').value = '';
           document.getElementById('manual-pulse-section').style.display = 'none';
           document.getElementById('camera-pulse-section').style.display = 'block';
@@ -724,6 +826,9 @@
           } else {
             showToast(err.message || 'Failed to save manual pulse reading.', 'error');
           }
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Save Pulse';
         }
       });
 
