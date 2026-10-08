@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safety & Medical Boundaries — Project Pulse: Silent Co-Pilot</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .safety-banner {
+      background: rgba(244, 63, 94, 0.1);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .helpline-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .helpline-card {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+    }
+    .safety-section {
+      margin-bottom: 2rem;
+    }
+    .boundary-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .boundary-table th, .boundary-table td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.92rem;
+    }
+    .boundary-table th {
+      color: var(--text-secondary);
+      font-weight: 600;
+      background: var(--bg-surface-elevated);
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/dashboard.html" class="nav-brand">
+      <span class="pulse-dot"></span>
+      Project Pulse
+    </a>
+    <ul class="nav-links">
+      <li><a href="/dashboard.html" class="nav-link" data-page="dashboard">Dashboard</a></li>
+      <li><a href="/checkin.html" class="nav-link" data-page="checkin">Check-in</a></li>
+      <li><a href="/timeline.html" class="nav-link" data-page="timeline">Timeline</a></li>
+      <li><a href="/insights.html" class="nav-link" data-page="insights">Insights</a></li>
+      <li><a href="/settings.html" class="nav-link" data-page="settings">Settings</a></li>
+    </ul>
+    <div class="nav-user">
+      <a href="/settings.html" class="btn btn-secondary btn-sm">Settings</a>
+      <a href="#" id="logout-btn" class="nav-link">Sign Out</a>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 800px;">
+    <!-- Emergency Warning Banner -->
+    <div class="safety-banner">
+      <h1 style="color: #fda4af; font-size: 1.35rem; font-weight: 800; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+        🚨 Urgent Medical Guidance
+      </h1>
+      <p style="color: var(--text-primary); font-size: 1.05rem; line-height: 1.5; font-weight: 600;">
+        Seek urgent medical care immediately for chest pain, trouble breathing, fainting, confusion, or severe headache.
+      </p>
+      <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.5rem;">
+        Do not wait for co-pilot signals or app recommendations if you or someone around you experiences acute cardiovascular, neurological, or respiratory distress symptoms.
+      </p>
+    </div>
+
+    <!-- Core Philosophy and Disclaimers -->
+    <div class="card safety-section">
+      <h2 class="card-title">What Project Pulse Is and Is Not</h2>
+      <p class="card-subtitle">Clear boundaries protect your health and your autonomy.</p>
+
+      <div style="font-size: 0.95rem; line-height: 1.6; color: var(--text-primary);">
+        <p style="margin-bottom: 0.75rem;">
+          <strong>Project Pulse is a wellness and behavioral-support tool. It is not a medical device and does not diagnose or treat medical conditions.</strong>
+        </p>
+        <p style="margin-bottom: 0.75rem;">
+          The tool is designed for high-stress professionals to notice patterns in lifestyle routines—such as late-night ordering, typing cadence pauses, and resting pulse variations—and suggest gentle, non-pharmacological micro-actions.
+        </p>
+        <p>
+          Never ignore professional medical advice, alter prescription medications, or delay seeking medical attention based on any observation or metric shown within Project Pulse.
+        </p>
+      </div>
+
+      <table class="boundary-table">
+        <thead>
+          <tr>
+            <th>Signal / Feature</th>
+            <th>What Pulse Does</th>
+            <th>What Pulse Never Does</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Camera Pulse</strong></td>
+            <td>Estimates heart rate using optical color variations (experimental wellness metric).</td>
+            <td>Does not compute HRV, SpO2, blood pressure, or diagnose arrhythmias.</td>
+          </tr>
+          <tr>
+            <td><strong>Blood Pressure</strong></td>
+            <td>Tracks self-reported readings against simplified cut-offs to observe routine trends.</td>
+            <td>Does not diagnose hypertension or recommend medications/dosages.</td>
+          </tr>
+          <tr>
+            <td><strong>Typing Cadence</strong></td>
+            <td>Measures rhythm, speed, and pause frequency during voluntary test passages.</td>
+            <td>Does not evaluate cognitive impairment, store keystroke text, or log private messages.</td>
+          </tr>
+          <tr>
+            <td><strong>Food Orders</strong></td>
+            <td>Identifies late-night delivery timing to highlight disruption to rest routines.</td>
+            <td>Never counts calories, tracks weight, assigns dietary guilt, or claims causality.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Support Helplines -->
+    <div class="card safety-section">
+      <h2 class="card-title">Emergency & Mental Health Helplines</h2>
+      <p class="card-subtitle">If you are in emotional distress, overwhelmed, or seeking counseling support, free and confidential support is available 24/7.</p>
+
+      <div class="helpline-grid">
+        <div class="helpline-card">
+          <div style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 700; text-transform: uppercase;">India (Government of India)</div>
+          <div style="font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0;">Tele-MANAS: 14416</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary);">
+            National Tele Mental Health Programme. Toll-free 24/7 service available in multiple Indian languages (Alternative: 1800-891-4416).
+          </p>
+        </div>
+
+        <div class="helpline-card">
+          <div style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 700; text-transform: uppercase;">India Emergency Services</div>
+          <div style="font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0;">Dial 112 / 102</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary);">
+            Emergency medical and ambulance response nationwide across India.
+          </p>
+        </div>
+
+        <div class="helpline-card">
+          <div style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 700; text-transform: uppercase;">KIRAN Mental Health (India)</div>
+          <div style="font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0;">1800-599-0019</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary);">
+            24/7 toll-free helpline by the Ministry of Social Justice and Empowerment.
+          </p>
+        </div>
+
+        <div class="helpline-card">
+          <div style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 700; text-transform: uppercase;">International / United States</div>
+          <div style="font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0;">Dial 988</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary);">
+            988 Suicide & Crisis Lifeline (US & Canada). For UK, call 111 (NHS).
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Protection Notice -->
+    <div class="card safety-section">
+      <h2 class="card-title">Privacy & Data Autonomy</h2>
+      <p class="card-subtitle">Your data remains under your absolute control.</p>
+
+      <ul style="padding-left: 1.25rem; font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6;">
+        <li>All 4 signal channels (Camera, Behavior, Orders, Health data) require explicit, affirmative opt-in consent before processing.</li>
+        <li>Raw camera video feeds and individual keystroke characters are never stored or transmitted to the database.</li>
+        <li>Raw receipt text is discarded immediately after in-memory parsing to prevent storing personal identifiers, addresses, or phone numbers.</li>
+        <li>You can export all data as an open ZIP archive or permanently wipe your records at any time from Settings.</li>
+        <li>This design aligns with the fundamental principles of data minimization and purposeful processing, including India's Digital Personal Data Protection (DPDP) Act. (Note: this is not formal legal advice).</li>
+      </ul>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Project Pulse is a wellness and behavioral-support tool. It is not a medical device and does not diagnose or treat medical conditions.</p>
+    <p style="margin-top: 0.25rem;"><a href="/dashboard.html" style="color: var(--accent-cyan);">Dashboard</a> · <a href="/settings.html" style="color: var(--accent-cyan);">Settings</a></p>
+  </footer>
+
+  <script type="module">
+    import { setupAppLayout } from '/js/ui.js';
+    document.addEventListener('DOMContentLoaded', async () => {
+      await setupAppLayout('safety');
+    });
+  </script>
+</body>
+</html>

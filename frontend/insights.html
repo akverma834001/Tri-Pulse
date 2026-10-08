@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insights — Project Pulse: Silent Co-Pilot</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .insight-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      transition: border-color 0.2s ease;
+    }
+    .insight-card:hover {
+      border-color: var(--border-medium);
+    }
+    .insight-card.severity-urgent {
+      border-left: 4px solid var(--accent-rose);
+      background: rgba(244, 63, 94, 0.05);
+    }
+    .insight-card.severity-attention {
+      border-left: 4px solid var(--accent-purple);
+    }
+    .insight-card.severity-notice {
+      border-left: 4px solid var(--accent-amber);
+    }
+    .insight-card.severity-info {
+      border-left: 4px solid var(--accent-cyan);
+    }
+    .insight-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .why-expander {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .why-toggle {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.2rem 0;
+    }
+    .why-toggle:hover {
+      color: var(--accent-cyan);
+    }
+    .why-content {
+      margin-top: 0.75rem;
+      padding: 0.9rem;
+      background: var(--bg-surface-elevated);
+      border-radius: var(--radius-md);
+      font-size: 0.88rem;
+    }
+    .evidence-list {
+      list-style-type: disc;
+      padding-left: 1.25rem;
+      margin-top: 0.5rem;
+      color: var(--text-secondary);
+    }
+    .evidence-list li {
+      margin-bottom: 0.35rem;
+    }
+    .action-box {
+      margin-top: 1rem;
+      padding: 0.9rem 1.1rem;
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      border-radius: var(--radius-md);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .feedback-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .feedback-btn {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s ease;
+    }
+    .feedback-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-medium);
+    }
+    .feedback-btn.active {
+      background: rgba(6, 182, 212, 0.2);
+      color: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/dashboard.html" class="nav-brand">
+      <span class="pulse-dot"></span>
+      Project Pulse
+    </a>
+    <ul class="nav-links">
+      <li><a href="/dashboard.html" class="nav-link" data-page="dashboard">Dashboard</a></li>
+      <li><a href="/checkin.html" class="nav-link" data-page="checkin">Check-in</a></li>
+      <li><a href="/timeline.html" class="nav-link" data-page="timeline">Timeline</a></li>
+      <li><a href="/insights.html" class="nav-link" data-page="insights">Insights</a></li>
+      <li><a href="/settings.html" class="nav-link" data-page="settings">Settings</a></li>
+    </ul>
+    <div class="nav-user">
+      <a href="/settings.html" class="btn btn-secondary btn-sm">Settings</a>
+      <a href="#" id="logout-btn" class="nav-link">Sign Out</a>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 800px;">
+    <div style="margin-bottom: 1.5rem;">
+      <h1 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.35rem;">Behavioral & Wellness Insights</h1>
+      <p style="color: var(--text-secondary); font-size: 0.95rem;">Transparent patterns detected against your personal baselines. No diagnostic claims.</p>
+    </div>
+
+    <!-- Insights Feed Container -->
+    <div id="insights-container">
+      <div id="insights-loading" style="text-align: center; padding: 3rem 0; color: var(--text-secondary);">
+        Computing baseline patterns...
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="insights-empty" class="card empty-state" style="display: none;">
+      <div class="empty-state-icon">💡</div>
+      <h2 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem;">Not enough data yet</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 1.25rem;">Continue using Pulse to establish your personal baseline (at least 5 sessions per signal). Once enough data is recorded, transparent pattern observations will appear here.</p>
+      <a href="/checkin.html" class="btn btn-primary">Start a Check-in</a>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Project Pulse is a wellness and behavioral-support tool. It is not a medical device and does not diagnose or treat medical conditions.</p>
+    <p style="margin-top: 0.25rem;"><a href="/safety.html" style="color: var(--accent-cyan);">Safety Information</a> · <a href="/settings.html" style="color: var(--accent-cyan);">Settings</a></p>
+  </footer>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { showToast, showConfirm, setupAppLayout } from '/js/ui.js';
+
+    const severityMap = {
+      urgent: { label: 'Urgent', class: 'badge-danger' },
+      attention: { label: 'Attention', class: 'badge-warning' },
+      notice: { label: 'Notice', class: 'badge-warning' },
+      info: { label: 'Informational', class: 'badge-info' },
+    };
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    async function loadInsights() {
+      try {
+        const insights = await api.get('/api/insights');
+        renderInsights(insights);
+      } catch (err) {
+        showToast(err.message || 'Failed to load insights.', 'error');
+        document.getElementById('insights-loading').style.display = 'none';
+      }
+    }
+
+    function renderInsights(insights) {
+      const container = document.getElementById('insights-container');
+      const emptyState = document.getElementById('insights-empty');
+
+      if (!insights || insights.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      container.innerHTML = '';
+
+      insights.forEach(ins => {
+        const card = document.createElement('div');
+        card.className = `insight-card severity-${ins.severity || 'info'}`;
+        card.id = `insight-${ins.id}`;
+
+        const sevInfo = severityMap[ins.severity] || { label: ins.severity, class: 'badge-info' };
+
+        const evidenceItems = (ins.evidence || []).map(e => `<li>${escapeHtml(e)}</li>`).join('');
+
+        card.innerHTML = `
+          <div class="insight-header">
+            <div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                ${escapeHtml(ins.category || 'Behavioral Pattern')} ${ins.is_supporting ? '· Supporting Signal' : ''}
+              </div>
+              <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem;">
+                ${escapeHtml(ins.title)}
+              </h2>
+            </div>
+            <span class="badge ${sevInfo.class}">${sevInfo.label}</span>
+          </div>
+
+          <p style="color: var(--text-primary); font-size: 0.95rem; line-height: 1.5; margin-bottom: 0.75rem;">
+            ${escapeHtml(ins.explanation)}
+          </p>
+
+          ${ins.recommended_action ? `
+            <div class="action-box">
+              <div>
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--accent-cyan); display: block;">Suggested Next Action:</span>
+                <span style="font-size: 0.92rem; color: var(--text-primary);">${escapeHtml(ins.recommended_action)}</span>
+              </div>
+              <a href="/intervention.html" class="btn btn-primary btn-sm">Take Action</a>
+            </div>
+          ` : ''}
+
+          <!-- Why am I seeing this? Expander -->
+          <div class="why-expander">
+            <button class="why-toggle" type="button" aria-expanded="false">
+              <span>🔍 Why am I seeing this?</span>
+            </button>
+            <div class="why-content" style="display: none;">
+              <div><strong>Fired Rule:</strong> <code>${escapeHtml(ins.rule_id)}</code></div>
+              <div style="margin-top: 0.5rem;"><strong>Supporting Signal Evidence:</strong></div>
+              <ul class="evidence-list">
+                ${evidenceItems || '<li>Signals matched the baseline threshold criteria.</li>'}
+              </ul>
+            </div>
+          </div>
+
+          <!-- Bottom controls (Feedback & Dismiss) -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap; gap: 0.75rem;">
+            <div class="feedback-group">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Was this observation helpful?</span>
+              <button type="button" class="feedback-btn ${ins.feedback === 'useful' ? 'active' : ''}" data-fb="useful">
+                👍 Useful
+              </button>
+              <button type="button" class="feedback-btn ${ins.feedback === 'not_useful' ? 'active' : ''}" data-fb="not_useful">
+                👎 Not useful
+              </button>
+            </div>
+
+            <button type="button" class="btn btn-secondary btn-sm dismiss-btn">Dismiss</button>
+          </div>
+        `;
+
+        // Toggle Why section
+        const whyBtn = card.querySelector('.why-toggle');
+        const whyContent = card.querySelector('.why-content');
+        whyBtn.addEventListener('click', () => {
+          const isOpen = whyContent.style.display !== 'none';
+          whyContent.style.display = isOpen ? 'none' : 'block';
+          whyBtn.setAttribute('aria-expanded', !isOpen);
+        });
+
+        // Feedback buttons
+        const fbBtns = card.querySelectorAll('.feedback-btn');
+        fbBtns.forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const fbVal = btn.getAttribute('data-fb');
+            try {
+              await api.patch(`/api/insights/${ins.id}`, { feedback: fbVal });
+              fbBtns.forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              showToast('Thank you for your feedback.', 'success');
+            } catch (err) {
+              showToast(err.message || 'Failed to save feedback.', 'error');
+            }
+          });
+        });
+
+        // Dismiss button
+        const dismissBtn = card.querySelector('.dismiss-btn');
+        dismissBtn.addEventListener('click', async () => {
+          try {
+            await api.patch(`/api/insights/${ins.id}`, { status: 'dismissed' });
+            card.remove();
+            showToast('Insight dismissed.', 'info');
+            if (container.children.length === 0) {
+              emptyState.style.display = 'block';
+            }
+          } catch (err) {
+            showToast(err.message || 'Failed to dismiss insight.', 'error');
+          }
+        });
+
+        container.appendChild(card);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await setupAppLayout('insights');
+      await loadInsights();
+    });
+  </script>
+</body>
+</html>

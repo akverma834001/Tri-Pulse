@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Project Pulse: Silent Co-Pilot</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/dashboard.html" class="nav-brand">
+      <span class="pulse-dot"></span>
+      Project Pulse
+    </a>
+    <ul class="nav-links">
+      <li><a href="/dashboard.html" class="nav-link" data-page="dashboard">Dashboard</a></li>
+      <li><a href="/checkin.html" class="nav-link" data-page="checkin">Check-in</a></li>
+      <li><a href="/timeline.html" class="nav-link" data-page="timeline">Timeline</a></li>
+      <li><a href="/insights.html" class="nav-link" data-page="insights">Insights</a></li>
+      <li><a href="/settings.html" class="nav-link" data-page="settings">Settings</a></li>
+    </ul>
+    <div class="nav-user">
+      <a href="/settings.html" class="btn btn-secondary btn-sm">Settings</a>
+      <a href="#" id="logout-btn" class="nav-link">Sign Out</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <!-- Urgent Alert Banner if present -->
+    <div id="urgent-alert-container" style="display: none; margin-bottom: 1.5rem;">
+      <div class="card" style="border-left: 4px solid var(--accent-rose); background: rgba(244, 63, 94, 0.1);">
+        <h2 style="color: #fda4af; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">Urgent Reading Attention</h2>
+        <p id="urgent-alert-text" style="color: var(--text-primary); font-size: 0.95rem;"></p>
+        <div style="margin-top: 0.75rem;">
+          <a href="/safety.html" class="btn btn-danger btn-sm">View Emergency Guidance</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Onboarding Checklist (Hidden when 100% complete) -->
+    <div id="onboarding-container" class="card onboarding-card" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 class="card-title" style="margin-bottom: 0.2rem;">Getting Started with Pulse</h2>
+          <p class="card-subtitle" style="margin-bottom: 0;">Complete these quick steps to establish your personal wellness baselines.</p>
+        </div>
+        <span id="onboarding-progress-badge" class="badge badge-info">0 of 4 done</span>
+      </div>
+
+      <div class="progress-bar-container">
+        <div id="onboarding-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+      </div>
+
+      <div id="onboarding-steps-list">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- Today / Latest State Grid -->
+    <section style="margin-bottom: 2rem;">
+      <h2 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-secondary);">Latest Signals & 7-Day Window</h2>
+      <div class="grid-4">
+        <!-- Pulse Tile -->
+        <div class="metric-tile" id="tile-pulse">
+          <div class="metric-label">Latest Pulse</div>
+          <div id="tile-pulse-val" class="metric-val">-- BPM</div>
+          <div id="tile-pulse-meta" class="metric-meta">No readings yet</div>
+        </div>
+
+        <!-- BP Tile -->
+        <div class="metric-tile" id="tile-bp">
+          <div class="metric-label">Blood Pressure</div>
+          <div id="tile-bp-val" class="metric-val">--/--</div>
+          <div id="tile-bp-meta" class="metric-meta">No readings yet</div>
+        </div>
+
+        <!-- Late Night Orders Tile -->
+        <div class="metric-tile" id="tile-orders">
+          <div class="metric-label">Late-Night Orders (7d)</div>
+          <div id="tile-orders-val" class="metric-val">--</div>
+          <div id="tile-orders-meta" class="metric-meta">Window: 10:30 PM - 5:00 AM</div>
+        </div>
+
+        <!-- Typing Rhythm Tile -->
+        <div class="metric-tile" id="tile-typing">
+          <div class="metric-label">Typing Cadence</div>
+          <div id="tile-typing-val" class="metric-val">--</div>
+          <div id="tile-typing-meta" class="metric-meta">Baseline building</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Primary Insight & Recommended Action -->
+    <section id="insights-section" style="margin-bottom: 2rem;">
+      <div id="primary-insight-card" class="card insight-hero" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.5rem;">
+          <h2 id="primary-insight-title" class="card-title"></h2>
+          <span id="primary-insight-badge" class="badge"></span>
+        </div>
+        <p id="primary-insight-explanation" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-primary);"></p>
+
+        <!-- Why am I seeing this? Expander -->
+        <details style="background: var(--bg-surface); padding: 0.75rem 1rem; border-radius: var(--radius-md); margin-bottom: 1.25rem;">
+          <summary style="cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">
+            Why am I seeing this? (Evidence & Rules)
+          </summary>
+          <ul id="primary-insight-evidence" class="evidence-list" style="margin-top: 0.75rem;">
+            <!-- Rendered by JS -->
+          </ul>
+        </details>
+
+        <!-- Recommended Action Button -->
+        <div id="recommended-action-box" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface-elevated); padding: 1rem 1.25rem; border-radius: var(--radius-md);">
+          <div>
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Recommended Next Action</div>
+            <div id="recommended-action-title" style="font-size: 1.05rem; font-weight: 600; color: var(--text-primary); margin-top: 0.15rem;"></div>
+          </div>
+          <button id="recommended-action-btn" class="btn btn-primary">Start Action</button>
+        </div>
+      </div>
+
+      <!-- Supporting Signals ("More signals (N)") -->
+      <div id="supporting-signals-card" class="card" style="display: none;">
+        <details>
+          <summary id="supporting-signals-summary" style="cursor: pointer; font-weight: 600; font-size: 0.95rem; color: var(--text-secondary);">
+            More signals (0)
+          </summary>
+          <div id="supporting-signals-list" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <!-- Rendered by JS -->
+          </div>
+        </details>
+      </div>
+
+      <!-- Empty State if no insight -->
+      <div id="no-insights-card" class="card" style="text-align: center; padding: 2.5rem 1.5rem;">
+        <h3 class="card-title">No Behavioral Patterns Detected</h3>
+        <p class="card-subtitle" style="max-width: 500px; margin: 0.5rem auto 1.5rem;">
+          Pulse establishes your personal baseline over your first 5 sessions before identifying trends.
+        </p>
+        <a href="/checkin.html" class="btn btn-primary">Add a Check-in</a>
+      </div>
+    </section>
+
+    <!-- Baseline Progress Section -->
+    <section style="margin-bottom: 2rem;">
+      <h2 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-secondary);">Personal Baseline Progress</h2>
+      <div class="grid-2" id="baselines-grid">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Weekly Trends (4 Rolling 7-day Buckets) -->
+    <section style="margin-bottom: 2rem;">
+      <h2 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-secondary);">Weekly Trends (4 Rolling 7-Day Periods)</h2>
+      <div class="card" id="trends-card">
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border-medium); color: var(--text-muted);">
+                <th style="padding: 0.75rem 0.5rem;">Window</th>
+                <th style="padding: 0.75rem 0.5rem;">Late-Night Orders</th>
+                <th style="padding: 0.75rem 0.5rem;">Avg Blood Pressure</th>
+                <th style="padding: 0.75rem 0.5rem;">Avg Pulse</th>
+                <th style="padding: 0.75rem 0.5rem;">Typing Cadence</th>
+                <th style="padding: 0.75rem 0.5rem;">Intervention Rate</th>
+              </tr>
+            </thead>
+            <tbody id="trends-table-body">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Project Pulse is a wellness and behavioral-support tool. It is not a medical device and does not diagnose or treat medical conditions.
+    <br><a href="/safety.html">Safety & Medical Disclaimer</a>
+  </footer>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { showToast, setupAppLayout } from '/js/ui.js';
+
+    await setupAppLayout('dashboard');
+
+    try {
+      const data = await api.get('/api/dashboard');
+      renderDashboard(data);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+
+    function renderDashboard(data) {
+      const { today_state, primary_insight, supporting_insights, recommended_action, onboarding, baseline_progress, weekly_trends } = data;
+
+      // 1. Today State
+      // Pulse
+      const pulseTileVal = document.getElementById('tile-pulse-val');
+      const pulseTileMeta = document.getElementById('tile-pulse-meta');
+      if (today_state.pulse.has_data) {
+        pulseTileVal.textContent = `${Math.round(today_state.pulse.bpm)} BPM`;
+        pulseTileMeta.textContent = today_state.pulse.age;
+      } else {
+        pulseTileVal.textContent = '--';
+        pulseTileMeta.innerHTML = '<a href="/checkin.html?tab=pulse" style="color:var(--accent-cyan);">Check pulse</a>';
+      }
+
+      // BP
+      const bpTileVal = document.getElementById('tile-bp-val');
+      const bpTileMeta = document.getElementById('tile-bp-meta');
+      if (today_state.bp.has_data) {
+        bpTileVal.textContent = `${today_state.bp.systolic}/${today_state.bp.diastolic}`;
+        bpTileMeta.textContent = `${today_state.bp.category_label} · ${today_state.bp.age}`;
+      } else {
+        bpTileVal.textContent = '--/--';
+        bpTileMeta.innerHTML = '<a href="/checkin.html?tab=bp" style="color:var(--accent-cyan);">Add BP</a>';
+      }
+
+      // Orders
+      const ordersTileVal = document.getElementById('tile-orders-val');
+      const ordersTileMeta = document.getElementById('tile-orders-meta');
+      if (today_state.late_night_orders.has_data) {
+        ordersTileVal.textContent = today_state.late_night_orders.count;
+        ordersTileMeta.textContent = today_state.late_night_orders.avg_time
+          ? `Avg time: ${today_state.late_night_orders.avg_time}`
+          : 'No late-night orders';
+      } else {
+        ordersTileVal.textContent = '0';
+        ordersTileMeta.innerHTML = '<a href="/checkin.html?tab=order" style="color:var(--accent-cyan);">Add receipt</a>';
+      }
+
+      // Typing
+      const typingTileVal = document.getElementById('tile-typing-val');
+      const typingTileMeta = document.getElementById('tile-typing-meta');
+      if (today_state.typing.has_data) {
+        const dev = today_state.typing.deviation_pct;
+        const sign = dev > 0 ? '+' : '';
+        typingTileVal.textContent = dev !== null ? `${sign}${dev}%` : `${Math.round(today_state.typing.current_wpm)} WPM`;
+        typingTileMeta.textContent = today_state.typing.status_text;
+      } else {
+        typingTileVal.textContent = '--';
+        typingTileMeta.innerHTML = '<a href="/checkin.html?tab=typing" style="color:var(--accent-cyan);">Check typing</a>';
+      }
+
+      // 2. Onboarding
+      const onbContainer = document.getElementById('onboarding-container');
+      if (!onboarding.is_complete) {
+        onbContainer.style.display = 'block';
+        document.getElementById('onboarding-progress-badge').textContent = `${onboarding.completed_count} of 4 done`;
+        document.getElementById('onboarding-progress-fill').style.width = `${onboarding.progress_percent}%`;
+
+        const stepsList = document.getElementById('onboarding-steps-list');
+        stepsList.innerHTML = onboarding.steps.map(s => `
+          <div class="checklist-item">
+            <span class="checklist-icon ${s.completed ? 'checklist-done' : 'checklist-pending'}">
+              ${s.completed ? '✓' : ''}
+            </span>
+            <span style="font-size:0.9rem; color: ${s.completed ? 'var(--text-muted)' : 'var(--text-primary)'}; ${s.completed ? 'text-decoration:line-through;' : ''}">
+              ${s.label}
+            </span>
+          </div>
+        `).join('');
+      } else {
+        onbContainer.style.display = 'none';
+      }
+
+      // 3. Primary Insight
+      const primaryCard = document.getElementById('primary-insight-card');
+      const noInsightsCard = document.getElementById('no-insights-card');
+
+      if (primary_insight) {
+        noInsightsCard.style.display = 'none';
+        primaryCard.style.display = 'block';
+
+        if (primary_insight.severity === 'urgent') {
+          primaryCard.className = 'card insight-urgent';
+        } else {
+          primaryCard.className = 'card insight-hero';
+        }
+
+        document.getElementById('primary-insight-title').textContent = primary_insight.title;
+        const badge = document.getElementById('primary-insight-badge');
+        badge.className = `badge badge-${primary_insight.severity}`;
+        badge.textContent = primary_insight.severity;
+
+        document.getElementById('primary-insight-explanation').textContent = primary_insight.explanation;
+
+        const evList = document.getElementById('primary-insight-evidence');
+        evList.innerHTML = primary_insight.evidence.map(ev => `<li>${ev}</li>`).join('');
+
+        // Recommended Action
+        const actionBox = document.getElementById('recommended-action-box');
+        const actionBtn = document.getElementById('recommended-action-btn');
+        if (recommended_action) {
+          actionBox.style.display = 'flex';
+          document.getElementById('recommended-action-title').textContent = recommended_action.title;
+          actionBtn.onclick = () => {
+            window.location.href = `/intervention.html?type=${recommended_action.intervention_type}&insight_id=${recommended_action.insight_id || ''}`;
+          };
+        } else {
+          document.getElementById('recommended-action-title').textContent = primary_insight.recommended_action;
+          actionBtn.textContent = 'View Insights';
+          actionBtn.onclick = () => { window.location.href = '/insights.html'; };
+        }
+      } else {
+        primaryCard.style.display = 'none';
+        noInsightsCard.style.display = 'block';
+      }
+
+      // 4. Supporting Signals
+      const suppCard = document.getElementById('supporting-signals-card');
+      if (supporting_insights && supporting_insights.length > 0) {
+        suppCard.style.display = 'block';
+        document.getElementById('supporting-signals-summary').textContent = `More signals (${supporting_insights.length})`;
+        const suppList = document.getElementById('supporting-signals-list');
+        suppList.innerHTML = supporting_insights.map(s => `
+          <div style="background:var(--bg-surface); padding:0.75rem 1rem; border-radius:var(--radius-md); display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:600; font-size:0.95rem;">${s.title}</div>
+              <div style="font-size:0.85rem; color:var(--text-secondary);">${s.explanation}</div>
+            </div>
+            <span class="badge badge-${s.severity}">${s.severity}</span>
+          </div>
+        `).join('');
+      } else {
+        suppCard.style.display = 'none';
+      }
+
+      // 5. Baseline Progress
+      const baseGrid = document.getElementById('baselines-grid');
+      baseGrid.innerHTML = baseline_progress.map(b => `
+        <div class="card" style="padding:1.25rem; margin-bottom:0;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+            <div>
+              <div style="font-weight:600; font-size:1rem;">${b.name}</div>
+              <div style="font-size:0.8rem; color:var(--text-muted);">${b.explanation}</div>
+            </div>
+            <span class="badge ${b.is_ready ? 'badge-normal' : 'badge-info'}">
+              ${b.session_count} of ${b.required_sessions} sessions
+            </span>
+          </div>
+          <div class="progress-bar-container" style="margin:0.5rem 0 0;">
+            <div class="progress-bar-fill" style="width:${Math.min(100, (b.session_count / b.required_sessions) * 100)}%;"></div>
+          </div>
+        </div>
+      `).join('');
+
+      // 6. Weekly Trends
+      const tbody = document.getElementById('trends-table-body');
+      tbody.innerHTML = weekly_trends.map(t => `
+        <tr style="border-bottom:1px solid var(--border-subtle);">
+          <td style="padding:0.75rem 0.5rem; font-weight:600;">${t.bucket_label}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.late_night_orders}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.avg_bp_systolic ? `${t.avg_bp_systolic}/${t.avg_bp_diastolic} mmHg` : '--'}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.avg_pulse ? `${t.avg_pulse} BPM` : '--'}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.typing_deviation_pct !== null ? `${t.typing_deviation_pct > 0 ? '+' : ''}${t.typing_deviation_pct}%` : '--'}</td>
+          <td style="padding:0.75rem 0.5rem;">${t.intervention_completion_rate !== null ? `${Math.round(t.intervention_completion_rate * 100)}%` : '--'}</td>
+        </tr>
+      `).join('');
+    }
+  </script>
+</body>
+</html>

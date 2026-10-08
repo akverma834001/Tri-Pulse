@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy & Consent — Project Pulse</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/dashboard.html" class="nav-brand">
+      <span class="pulse-dot"></span>
+      Project Pulse
+    </a>
+    <ul class="nav-links">
+      <li><a href="/dashboard.html" class="nav-link" data-page="dashboard">Dashboard</a></li>
+      <li><a href="/checkin.html" class="nav-link" data-page="checkin">Check-in</a></li>
+      <li><a href="/timeline.html" class="nav-link" data-page="timeline">Timeline</a></li>
+      <li><a href="/insights.html" class="nav-link" data-page="insights">Insights</a></li>
+      <li><a href="/settings.html" class="nav-link" data-page="settings">Settings</a></li>
+    </ul>
+    <div class="nav-user">
+      <a href="#" id="logout-btn" class="nav-link">Sign Out</a>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 800px;">
+    <div style="margin-bottom: 2rem;">
+      <h1 style="font-size: 1.75rem; font-weight: 700;">Privacy & Consents</h1>
+      <p style="color: var(--text-secondary); margin-top: 0.25rem;">
+        Pulse operates on consented signals only. You control which signals to collect and can revoke any permission instantly.
+      </p>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+      <button id="select-all-btn" class="btn btn-secondary btn-sm">Select All Consents</button>
+    </div>
+
+    <!-- Consent Toggle 1: Order Data -->
+    <div class="card" id="consent-card-order_data">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+        <div>
+          <h2 style="font-size: 1.15rem; font-weight: 600;">1. Food Order Receipt Processing</h2>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0.4rem 0;">
+            Extracts order delivery time, amount, and broad behavioral categories to identify late-night ordering patterns.
+          </p>
+          <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+            <strong>Stored:</strong> Delivery timestamp, restaurant name, food items list, estimated amount, behavioral categories.<br>
+            <strong>NOT Stored:</strong> Raw receipt text, payment cards, phone numbers, delivery addresses, OTPs.
+          </div>
+        </div>
+        <input type="checkbox" id="toggle-order_data" style="width: 24px; height: 24px; margin-top: 0.25rem;">
+      </div>
+    </div>
+
+    <!-- Consent Toggle 2: Health Data -->
+    <div class="card" id="consent-card-health_data">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+        <div>
+          <h2 style="font-size: 1.15rem; font-weight: 600;">2. Blood Pressure & Manual Vitals Storage</h2>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0.4rem 0;">
+            Stores user-entered blood pressure readings and manual pulse entries to monitor deviations against personal baselines.
+          </p>
+          <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+            <strong>Stored:</strong> Systolic, diastolic, optional pulse, timestamp, data source.<br>
+            <strong>NOT Stored:</strong> Insurance details, clinical diagnosis labels, medication prescriptions.
+          </div>
+        </div>
+        <input type="checkbox" id="toggle-health_data" style="width: 24px; height: 24px; margin-top: 0.25rem;">
+      </div>
+    </div>
+
+    <!-- Consent Toggle 3: Camera Pulse -->
+    <div class="card" id="consent-card-camera">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+        <div>
+          <h2 style="font-size: 1.15rem; font-weight: 600;">3. Experimental Camera Pulse Estimation</h2>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0.4rem 0;">
+            Uses your phone camera to calculate an experimental pulse estimate via fingertip photoplethysmography (PPG).
+          </p>
+          <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+            <strong>Stored:</strong> Final estimated BPM, duration, signal quality score.<br>
+            <strong>NOT Stored:</strong> Camera video, raw frames, or face recordings. Frames are processed entirely in browser memory and immediately discarded.
+          </div>
+        </div>
+        <input type="checkbox" id="toggle-camera" style="width: 24px; height: 24px; margin-top: 0.25rem;">
+      </div>
+    </div>
+
+    <!-- Consent Toggle 4: Typing Rhythm -->
+    <div class="card" id="consent-card-behavior">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+        <div>
+          <h2 style="font-size: 1.15rem; font-weight: 600;">4. Typing Rhythm Behavioral Analysis</h2>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0.4rem 0;">
+            Measures natural cadence, typing speed, pauses, and backspaces during a short prompt check-in.
+          </p>
+          <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+            <strong>Stored:</strong> Speed (WPM), error rate, pause frequency, session duration.<br>
+            <strong>NOT Stored:</strong> What you typed. Keystrokes are counted in memory; text content is never recorded or sent.
+          </div>
+        </div>
+        <input type="checkbox" id="toggle-behavior" style="width: 24px; height: 24px; margin-top: 0.25rem;">
+      </div>
+    </div>
+
+    <!-- Revocation Data Wipe Option -->
+    <div class="card" style="background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.2);">
+      <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+        <input type="checkbox" id="delete-revoked-data-check" style="margin-top: 0.25rem; width: 18px; height: 18px;">
+        <label for="delete-revoked-data-check" style="font-size: 0.9rem; color: var(--text-secondary);">
+          If I revoke any consent, also delete all existing data collected under that consent immediately.
+        </label>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem;">
+      <a href="/dashboard.html" class="btn btn-secondary">Go to Dashboard</a>
+      <button id="save-consents-btn" class="btn btn-primary">Save Consents</button>
+    </div>
+  </main>
+
+  <footer class="footer">
+    Project Pulse is a wellness and behavioral-support tool. It is not a medical device and does not diagnose or treat medical conditions.
+    <br><a href="/safety.html">Safety & Medical Disclaimer</a>
+  </footer>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { showToast, showConfirm, setupAppLayout } from '/js/ui.js';
+
+    await setupAppLayout('consent');
+
+    const toggleOrder = document.getElementById('toggle-order_data');
+    const toggleHealth = document.getElementById('toggle-health_data');
+    const toggleCamera = document.getElementById('toggle-camera');
+    const toggleBehavior = document.getElementById('toggle-behavior');
+    const deleteCheck = document.getElementById('delete-revoked-data-check');
+
+    // Highlight deep link if present
+    const params = new URLSearchParams(window.location.search);
+    const highlight = params.get('highlight');
+    if (highlight) {
+      const card = document.getElementById(`consent-card-${highlight}`);
+      if (card) {
+        card.style.borderColor = 'var(--accent-cyan)';
+        card.style.boxShadow = '0 0 15px rgba(6, 182, 212, 0.3)';
+        card.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    // Load current consents
+    try {
+      const data = await api.get('/api/consent');
+      toggleOrder.checked = !!data.order_data;
+      toggleHealth.checked = !!data.health_data;
+      toggleCamera.checked = !!data.camera;
+      toggleBehavior.checked = !!data.behavior;
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+
+    // Select All
+    document.getElementById('select-all-btn').addEventListener('click', () => {
+      toggleOrder.checked = true;
+      toggleHealth.checked = true;
+      toggleCamera.checked = true;
+      toggleBehavior.checked = true;
+    });
+
+    // Save
+    document.getElementById('save-consents-btn').addEventListener('click', async () => {
+      const payload = {
+        order_data: toggleOrder.checked,
+        health_data: toggleHealth.checked,
+        camera: toggleCamera.checked,
+        behavior: toggleBehavior.checked,
+        delete_revoked_data: deleteCheck.checked,
+      };
+
+      try {
+        await api.put('/api/consent', payload);
+        showToast('Privacy consents updated', 'success');
+        setTimeout(() => {
+          window.location.href = '/dashboard.html';
+        }, 500);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

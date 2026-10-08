@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — Project Pulse: Silent Co-Pilot</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem;">
+    <div style="max-width: 440px; width: 100%;">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <span class="pulse-dot"></span>
+          <h1 style="font-size: 1.6rem; font-weight: 700;">Project Pulse</h1>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.95rem;">Silent Co-Pilot for High-Stress Professionals</p>
+      </div>
+
+      <!-- One-click Demo Button -->
+      <div class="card" style="border: 1px solid var(--accent-amber); background: rgba(245, 158, 11, 0.05); text-align: center; margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; color: #fbbf24;">Evaluating or Demoing?</h2>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.9rem;">Experience a pre-seeded multi-week historical dataset instantly without registering.</p>
+        <button id="try-demo-btn" class="btn btn-primary" style="width: 100%; background: #d97706; border-color: #b45309;">Try the Demo (1-Click)</button>
+      </div>
+
+      <div class="card">
+        <div class="tabs-header">
+          <button id="tab-login" class="tab-btn active" style="flex: 1;">Sign In</button>
+          <button id="tab-register" class="tab-btn" style="flex: 1;">Create Account</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form">
+          <div class="form-group">
+            <label class="form-label" for="login-email">Email Address</label>
+            <input type="email" id="login-email" class="form-input" required autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="login-password">Password</label>
+            <input type="password" id="login-password" class="form-input" required autocomplete="current-password">
+          </div>
+          <button type="submit" id="login-submit-btn" class="btn btn-primary" style="width: 100%;">Sign In</button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" style="display: none;">
+          <div class="form-group">
+            <label class="form-label" for="reg-name">Full Name</label>
+            <input type="text" id="reg-name" class="form-input" required autocomplete="name">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-email">Email Address</label>
+            <input type="email" id="reg-email" class="form-input" required autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-password">Password (10+ characters)</label>
+            <input type="password" id="reg-password" class="form-input" minlength="10" required autocomplete="new-password">
+            <span class="form-helper">Must be at least 10 characters</span>
+          </div>
+          <div class="form-group" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 1rem;">
+            <input type="checkbox" id="reg-age" required style="margin-top: 0.25rem; width: 18px; height: 18px;">
+            <label for="reg-age" style="font-size: 0.85rem; color: var(--text-secondary);">
+              I confirm that I am 18 years of age or older.
+            </label>
+          </div>
+          <button type="submit" id="reg-submit-btn" class="btn btn-primary" style="width: 100%;">Create Account</button>
+        </form>
+      </div>
+
+      <p style="text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
+        Not a medical device. Does not diagnose or treat medical conditions.
+        <br><a href="/safety.html" style="color: var(--text-secondary);">Safety & Medical Disclaimer</a>
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { showToast } from '/js/ui.js';
+
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+
+    tabLogin.addEventListener('click', () => {
+      tabLogin.classList.add('active');
+      tabRegister.classList.remove('active');
+      loginForm.style.display = 'block';
+      registerForm.style.display = 'none';
+    });
+
+    tabRegister.addEventListener('click', () => {
+      tabRegister.classList.add('active');
+      tabLogin.classList.remove('active');
+      registerForm.style.display = 'block';
+      loginForm.style.display = 'none';
+    });
+
+    // Try Demo
+    document.getElementById('try-demo-btn').addEventListener('click', async () => {
+      try {
+        await api.post('/api/demo/load');
+        showToast('Demo loaded successfully', 'success');
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    // Handle Login
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      try {
+        await api.post('/api/auth/login', { email, password });
+        showToast('Welcome back', 'success');
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    // Handle Register
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value;
+      const email = document.getElementById('reg-email').value;
+      const password = document.getElementById('reg-password').value;
+      const ageConfirmed = document.getElementById('reg-age').checked;
+
+      try {
+        await api.post('/api/auth/register', {
+          name,
+          email,
+          password,
+          age_confirmed: ageConfirmed,
+        });
+        showToast('Account created successfully', 'success');
+        // New users go to consent onboarding first
+        window.location.href = '/consent.html';
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

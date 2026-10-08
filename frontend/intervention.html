@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Micro-Intervention — Project Pulse: Silent Co-Pilot</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .player-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      text-align: center;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+    .timer-display {
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--accent-cyan);
+      margin: 1.5rem 0 1rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .breathing-circle-wrap {
+      width: 200px;
+      height: 200px;
+      margin: 1.5rem auto;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .breathing-circle {
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.4) 0%, rgba(6, 182, 212, 0.05) 70%);
+      border: 2px solid var(--accent-cyan);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 4s ease-in-out;
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.2);
+    }
+    .breathing-circle.inhale {
+      transform: scale(1.6);
+    }
+    .breathing-circle.hold {
+      transform: scale(1.6);
+    }
+    .breathing-circle.exhale {
+      transform: scale(1.0);
+    }
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-align: left;
+      padding: 0.75rem 1rem;
+      background: var(--bg-surface-elevated);
+      border-radius: var(--radius-md);
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .checklist-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-cyan);
+    }
+    .control-row {
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-top: 1.75rem;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/dashboard.html" class="nav-brand">
+      <span class="pulse-dot"></span>
+      Project Pulse
+    </a>
+    <ul class="nav-links">
+      <li><a href="/dashboard.html" class="nav-link" data-page="dashboard">Dashboard</a></li>
+      <li><a href="/checkin.html" class="nav-link" data-page="checkin">Check-in</a></li>
+      <li><a href="/timeline.html" class="nav-link" data-page="timeline">Timeline</a></li>
+      <li><a href="/insights.html" class="nav-link" data-page="insights">Insights</a></li>
+      <li><a href="/settings.html" class="nav-link" data-page="settings">Settings</a></li>
+    </ul>
+    <div class="nav-user">
+      <a href="/settings.html" class="btn btn-secondary btn-sm">Settings</a>
+      <a href="#" id="logout-btn" class="nav-link">Sign Out</a>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 700px;">
+    <!-- Selector Bar if no type active -->
+    <div id="intervention-selector" class="card" style="display: none; margin-bottom: 1.5rem;">
+      <h2 class="card-title">Choose a Guided Micro-Action</h2>
+      <p class="card-subtitle">One small action right now to help reset cadence and stress response.</p>
+      <div class="grid-2" style="margin-top: 1rem;">
+        <button class="btn btn-secondary select-action-btn" data-type="breathing_4min" style="text-align: left; padding: 1rem;">
+          <strong>🌬️ 4-Min Guided Breathing</strong><br>
+          <span style="font-size: 0.85rem; color: var(--text-secondary);">Visual pacing for steady rhythm.</span>
+        </button>
+        <button class="btn btn-secondary select-action-btn" data-type="winddown_5min" style="text-align: left; padding: 1rem;">
+          <strong>🌙 5-Min Evening Wind-down</strong><br>
+          <span style="font-size: 0.85rem; color: var(--text-secondary);">Gentle steps before late-night hours.</span>
+        </button>
+        <button class="btn btn-secondary select-action-btn" data-type="order_delay_10min" style="text-align: left; padding: 1rem;">
+          <strong>⏸️ 10-Min Pre-Order Pause</strong><br>
+          <span style="font-size: 0.85rem; color: var(--text-secondary);">Mindful pause before placing a delivery.</span>
+        </button>
+        <button class="btn btn-secondary select-action-btn" data-type="movement_5min" style="text-align: left; padding: 1rem;">
+          <strong>🚶 5-Min Movement Walk</strong><br>
+          <span style="font-size: 0.85rem; color: var(--text-secondary);">Short walk to break sitting periods.</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Player Card -->
+    <div id="player-container" class="player-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span id="player-category" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+          Micro-Intervention
+        </span>
+        <button id="btn-skip-ahead" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;" title="Fast forward for demo evaluation">
+          ⏩ Skip ahead (Demo)
+        </button>
+      </div>
+
+      <h1 id="player-title" style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">
+        Guided Breathing
+      </h1>
+      <p id="player-description" style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.25rem;">
+        Inhale, hold, exhale, and rest in gentle 4-second intervals.
+      </p>
+
+      <!-- Eating Care Box (Only for order_delay_10min) -->
+      <div id="eating-care-box" class="alert alert-info" style="display: none; margin-bottom: 1.25rem; font-size: 0.92rem; text-align: left;">
+        🌱 <strong>Pause to check in:</strong> If you're hungry, eating is fine. This is just a pause to check in with yourself.
+      </div>
+
+      <!-- Breathing Animation Visual -->
+      <div id="breathing-visual-wrap" class="breathing-circle-wrap" style="display: none;">
+        <div id="breathing-circle" class="breathing-circle">
+          <span id="breathing-phase-text" style="font-weight: 700; font-size: 0.9rem; color: var(--accent-cyan);">Inhale</span>
+        </div>
+      </div>
+
+      <!-- Winddown Checklist -->
+      <div id="winddown-checklist" style="display: none; margin: 1rem 0; text-align: left;">
+        <label class="checklist-item">
+          <input type="checkbox"> Put your phone face-down or switch on Do Not Disturb
+        </label>
+        <label class="checklist-item">
+          <input type="checkbox"> Take 5 slow, unhurried breaths
+        </label>
+        <label class="checklist-item">
+          <input type="checkbox"> Drink a small glass of water
+        </label>
+        <label class="checklist-item">
+          <input type="checkbox"> Dim overhead room lighting
+        </label>
+        <label class="checklist-item">
+          <input type="checkbox"> Pause for 5 minutes before placing late orders
+        </label>
+      </div>
+
+      <!-- Movement Instructions -->
+      <div id="movement-instructions" style="display: none; margin: 1rem 0; text-align: left;">
+        <div class="checklist-item">🚶 Step away from your desk or screen</div>
+        <div class="checklist-item">🙆 Roll your shoulders and gently stretch neck & back</div>
+        <div class="checklist-item">🚰 Take a brief walk to get water or fresh air</div>
+      </div>
+
+      <!-- Timer & Progress Bar -->
+      <div id="timer-display" class="timer-display" aria-live="polite">4:00</div>
+      
+      <div class="progress-bar-container" style="max-width: 400px; margin: 0 auto 1.5rem;">
+        <div id="timer-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+      </div>
+
+      <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+        Stop if you feel dizzy or unwell.
+      </div>
+
+      <!-- Controls -->
+      <div class="control-row">
+        <button id="btn-start" class="btn btn-primary">Start</button>
+        <button id="btn-pause" class="btn btn-secondary" style="display: none;">Pause</button>
+        <button id="btn-complete" class="btn btn-primary" style="display: none;">Mark Completed</button>
+        <button id="btn-order-anyway" class="btn btn-secondary" style="display: none;">Order Anyway</button>
+        <button id="btn-skip" class="btn btn-secondary">Skip</button>
+        <button id="btn-abandon" class="btn btn-danger btn-sm" style="display: none;">Stop</button>
+      </div>
+    </div>
+
+    <!-- Post-intervention Outcome Rating Card -->
+    <div id="feedback-card" class="player-card" style="display: none; margin-top: 1.5rem;">
+      <h2 style="font-size: 1.35rem; font-weight: 700; margin-bottom: 0.5rem;">Session Complete</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">How do you feel right now?</p>
+
+      <div style="display: flex; justify-content: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+        <button class="btn btn-secondary feeling-btn" data-feeling="calmer">😌 Calmer</button>
+        <button class="btn btn-secondary feeling-btn" data-feeling="same">😐 Same</button>
+        <button class="btn btn-secondary feeling-btn" data-feeling="worse">😟 Worse</button>
+      </div>
+
+      <div style="border-top: 1px solid var(--border-subtle); padding-top: 1.25rem; display: flex; justify-content: center; gap: 1rem;">
+        <a href="/checkin.html?tab=pulse" class="btn btn-secondary btn-sm">Measure Pulse Again</a>
+        <a href="/dashboard.html" class="btn btn-primary btn-sm">Return to Dashboard</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Project Pulse is a wellness and behavioral-support tool. It is not a medical device and does not diagnose or treat medical conditions.</p>
+    <p style="margin-top: 0.25rem;"><a href="/safety.html" style="color: var(--accent-cyan);">Safety Information</a> · <a href="/settings.html" style="color: var(--accent-cyan);">Settings</a></p>
+  </footer>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { showToast, showConfirm, setupAppLayout } from '/js/ui.js';
+    import { InterventionTimer } from '/js/timer.js';
+
+    let activeIntervention = null;
+    let timer = null;
+    let breathingInterval = null;
+    let selectedType = 'breathing_4min';
+
+    const infoMap = {
+      breathing_4min: {
+        title: 'Guided Breathing',
+        desc: 'Inhale, hold, exhale, and rest in gentle 4-second intervals.',
+        duration: 240,
+        trigger: 'high_load',
+      },
+      winddown_5min: {
+        title: '5-Minute Wind-down',
+        desc: 'Simple physical checklist to transition out of high stimulation.',
+        duration: 300,
+        trigger: 'late_night_pattern',
+      },
+      order_delay_10min: {
+        title: 'Pre-Order Pause',
+        desc: 'Take a brief, judgment-free pause before confirming your food order.',
+        duration: 600,
+        trigger: 'before_order',
+      },
+      movement_5min: {
+        title: '5-Minute Movement Walk',
+        desc: 'Step away and take a short walk to reset circulation.',
+        duration: 300,
+        trigger: 'sitting_reminder',
+      },
+    };
+
+    function setupUIForType(type) {
+      selectedType = type;
+      const info = infoMap[type] || infoMap.breathing_4min;
+
+      document.getElementById('player-title').textContent = info.title;
+      document.getElementById('player-description').textContent = info.desc;
+
+      // Visuals
+      document.getElementById('breathing-visual-wrap').style.display = type === 'breathing_4min' ? 'flex' : 'none';
+      document.getElementById('winddown-checklist').style.display = type === 'winddown_5min' ? 'block' : 'none';
+      document.getElementById('movement-instructions').style.display = type === 'movement_5min' ? 'block' : 'none';
+      document.getElementById('eating-care-box').style.display = type === 'order_delay_10min' ? 'block' : 'none';
+      document.getElementById('btn-order-anyway').style.display = type === 'order_delay_10min' ? 'inline-block' : 'none';
+
+      // Reset timer display
+      const mins = Math.floor(info.duration / 60);
+      const secs = info.duration % 60;
+      document.getElementById('timer-display').textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      document.getElementById('timer-progress-fill').style.width = '0%';
+    }
+
+    // Breathing box pacing
+    function startBreathingCycle() {
+      const circle = document.getElementById('breathing-circle');
+      const text = document.getElementById('breathing-phase-text');
+      if (!circle || !text) return;
+
+      const phases = [
+        { name: 'Inhale', cls: 'inhale', sec: 4 },
+        { name: 'Hold', cls: 'hold', sec: 4 },
+        { name: 'Exhale', cls: 'exhale', sec: 4 },
+        { name: 'Hold', cls: 'hold', sec: 4 },
+      ];
+
+      let idx = 0;
+      const runPhase = () => {
+        const p = phases[idx];
+        text.textContent = p.name;
+        circle.className = `breathing-circle ${p.cls}`;
+        idx = (idx + 1) % phases.length;
+      };
+
+      runPhase();
+      breathingInterval = setInterval(runPhase, 4000);
+    }
+
+    function stopBreathingCycle() {
+      if (breathingInterval) {
+        clearInterval(breathingInterval);
+        breathingInterval = null;
+      }
+    }
+
+    async function initSession() {
+      const urlParams = new URLSearchParams(window.location.search);
+      let typeFromUrl = urlParams.get('type');
+
+      if (!typeFromUrl) {
+        try {
+          const recRes = await api.get('/api/interventions/recommendation');
+          if (recRes.recommendation) {
+            typeFromUrl = recRes.recommendation.intervention_type;
+          }
+        } catch {}
+      }
+
+      if (typeFromUrl && infoMap[typeFromUrl]) {
+        setupUIForType(typeFromUrl);
+      } else {
+        document.getElementById('intervention-selector').style.display = 'block';
+        setupUIForType('breathing_4min');
+      }
+
+      // Create initial suggested intervention record
+      try {
+        const info = infoMap[selectedType];
+        activeIntervention = await api.post('/api/interventions', {
+          intervention_type: selectedType,
+          trigger_type: info.trigger,
+          suggested_by: 'user',
+        });
+      } catch (err) {
+        console.error('Failed to pre-create intervention:', err);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await setupAppLayout();
+      await initSession();
+
+      // Action selector buttons
+      document.querySelectorAll('.select-action-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const type = btn.getAttribute('data-type');
+          setupUIForType(type);
+          const info = infoMap[type];
+          activeIntervention = await api.post('/api/interventions', {
+            intervention_type: type,
+            trigger_type: info.trigger,
+            suggested_by: 'user',
+          });
+        });
+      });
+
+      const btnStart = document.getElementById('btn-start');
+      const btnPause = document.getElementById('btn-pause');
+      const btnComplete = document.getElementById('btn-complete');
+      const btnSkipAhead = document.getElementById('btn-skip-ahead');
+      const btnSkip = document.getElementById('btn-skip');
+      const btnAbandon = document.getElementById('btn-abandon');
+      const btnOrderAnyway = document.getElementById('btn-order-anyway');
+
+      const timerEl = document.getElementById('timer-display');
+      const fillEl = document.getElementById('timer-progress-fill');
+
+      btnStart.addEventListener('click', async () => {
+        if (!activeIntervention) return;
+        try {
+          await api.post(`/api/interventions/${activeIntervention.id}/start`);
+          btnStart.style.display = 'none';
+          btnPause.style.display = 'inline-block';
+          btnAbandon.style.display = 'inline-block';
+          btnComplete.style.display = 'inline-block';
+
+          if (selectedType === 'breathing_4min') {
+            startBreathingCycle();
+          }
+
+          const duration = infoMap[selectedType].duration;
+          timer = new InterventionTimer(
+            duration,
+            timerEl,
+            fillEl,
+            null,
+            () => handleSessionCompletion()
+          );
+          timer.start();
+        } catch (err) {
+          showToast(err.message || 'Failed to start session.', 'error');
+        }
+      });
+
+      btnPause.addEventListener('click', () => {
+        if (!timer) return;
+        const isPaused = timer.togglePause();
+        btnPause.textContent = isPaused ? 'Resume' : 'Pause';
+        if (isPaused) {
+          stopBreathingCycle();
+        } else if (selectedType === 'breathing_4min') {
+          startBreathingCycle();
+        }
+      });
+
+      btnSkipAhead.addEventListener('click', () => {
+        if (timer) {
+          timer.fastForward(3);
+          showToast('Fast-forwarded to last 3 seconds for demo evaluation.', 'info');
+        } else {
+          showToast('Press Start first to begin timer.', 'warning');
+        }
+      });
+
+      async function handleSessionCompletion() {
+        stopBreathingCycle();
+        if (timer) timer.stop();
+
+        try {
+          const duration = infoMap[selectedType].duration;
+          await api.post(`/api/interventions/${activeIntervention.id}/complete`, {
+            actual_seconds: duration,
+          });
+
+          // If order-delay, record outcome "waited"
+          if (selectedType === 'order_delay_10min') {
+            await api.post(`/api/interventions/${activeIntervention.id}/outcome`, {
+              outcome: 'waited',
+            });
+          }
+
+          document.getElementById('player-container').style.display = 'none';
+          document.getElementById('feedback-card').style.display = 'block';
+          showToast('Session completed. Please share a quick check-in.', 'success');
+        } catch (err) {
+          showToast(err.message || 'Error completing session.', 'error');
+        }
+      }
+
+      btnComplete.addEventListener('click', () => {
+        handleSessionCompletion();
+      });
+
+      btnOrderAnyway.addEventListener('click', async () => {
+        if (!activeIntervention) return;
+        stopBreathingCycle();
+        if (timer) timer.stop();
+
+        try {
+          await api.post(`/api/interventions/${activeIntervention.id}/outcome`, {
+            outcome: 'ordered_anyway',
+          });
+          showToast('Order recorded. If you are hungry, eating is fine.', 'info');
+          setTimeout(() => window.location.href = '/dashboard.html', 1500);
+        } catch (err) {
+          showToast(err.message || 'Failed to save outcome.', 'error');
+        }
+      });
+
+      btnSkip.addEventListener('click', async () => {
+        if (!activeIntervention) return;
+        try {
+          await api.post(`/api/interventions/${activeIntervention.id}/skip`);
+          showToast('Intervention skipped.', 'info');
+          window.location.href = '/dashboard.html';
+        } catch (err) {
+          showToast(err.message || 'Failed to skip.', 'error');
+        }
+      });
+
+      btnAbandon.addEventListener('click', () => {
+        showConfirm('Stop Session', 'Are you sure you want to stop this session early?', async () => {
+          stopBreathingCycle();
+          if (timer) timer.stop();
+          try {
+            await api.post(`/api/interventions/${activeIntervention.id}/abandon`);
+            showToast('Session stopped.', 'info');
+            window.location.href = '/dashboard.html';
+          } catch (err) {
+            showToast(err.message || 'Failed to abandon session.', 'error');
+          }
+        });
+      });
+
+      // Post-session feeling buttons
+      document.querySelectorAll('.feeling-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const feeling = btn.getAttribute('data-feeling');
+          try {
+            await api.post(`/api/interventions/${activeIntervention.id}/feedback`, {
+              feeling_after: feeling,
+            });
+            showToast(`Thank you! Response recorded as "${feeling}".`, 'success');
+            document.querySelectorAll('.feeling-btn').forEach(b => b.classList.remove('btn-primary'));
+            btn.classList.add('btn-primary');
+          } catch (err) {
+            showToast(err.message || 'Failed to save feeling response.', 'error');
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>

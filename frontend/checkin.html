@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check-in Hub — Project Pulse: Silent Co-Pilot</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .tab-nav {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.25rem;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.6rem 1.2rem;
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+    }
+    .tab-btn.active {
+      color: var(--accent-cyan);
+      border-bottom-color: var(--accent-cyan);
+      background: var(--bg-surface);
+    }
+    .tab-pane {
+      display: none;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+    .field-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.5rem;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-left: 0.5rem;
+    }
+    .badge-found {
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+    }
+    .badge-missing {
+      background: rgba(244, 63, 94, 0.2);
+      color: #fda4af;
+    }
+    .camera-viewport-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 320px;
+      aspect-ratio: 4 / 3;
+      margin: 0 auto 1.5rem;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: #000;
+      border: 2px solid var(--border-medium);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .finger-indicator {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      padding: 0.25rem 0.75rem;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(0,0,0,0.7);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+    .finger-indicator.detected {
+      color: #6ee7b7;
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.25);
+    }
+    .typing-prompt-box {
+      background: var(--bg-surface-elevated);
+      border-left: 4px solid var(--accent-cyan);
+      padding: 1.25rem;
+      border-radius: var(--radius-md);
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: var(--text-primary);
+      user-select: none;
+      margin-bottom: 1.25rem;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/dashboard.html" class="nav-brand">
+      <span class="pulse-dot"></span>
+      Project Pulse
+    </a>
+    <ul class="nav-links">
+      <li><a href="/dashboard.html" class="nav-link" data-page="dashboard">Dashboard</a></li>
+      <li><a href="/checkin.html" class="nav-link" data-page="checkin">Check-in</a></li>
+      <li><a href="/timeline.html" class="nav-link" data-page="timeline">Timeline</a></li>
+      <li><a href="/insights.html" class="nav-link" data-page="insights">Insights</a></li>
+      <li><a href="/settings.html" class="nav-link" data-page="settings">Settings</a></li>
+    </ul>
+    <div class="nav-user">
+      <a href="/settings.html" class="btn btn-secondary btn-sm">Settings</a>
+      <a href="#" id="logout-btn" class="nav-link">Sign Out</a>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 800px;">
+    <div style="margin-bottom: 1.5rem;">
+      <h1 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.35rem;">Quick-Add Check-in</h1>
+      <p style="color: var(--text-secondary); font-size: 0.95rem;">Log orders, check blood pressure, record pulse, or test typing cadence.</p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav" role="tablist">
+      <button class="tab-btn active" role="tab" id="tab-btn-order" data-target="pane-order">
+        <span>🧾 Food Order</span>
+      </button>
+      <button class="tab-btn" role="tab" id="tab-btn-bp" data-target="pane-bp">
+        <span>🩺 Blood Pressure</span>
+      </button>
+      <button class="tab-btn" role="tab" id="tab-btn-pulse" data-target="pane-pulse">
+        <span>💓 Pulse Estimate</span>
+      </button>
+      <button class="tab-btn" role="tab" id="tab-btn-typing" data-target="pane-typing">
+        <span>⌨️ Typing Rhythm</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: ORDER INGESTION -->
+    <div id="pane-order" class="tab-pane active" role="tabpanel">
+      <div class="card">
+        <h2 class="card-title">Paste Receipt or Confirmation</h2>
+        <p class="card-subtitle">Paste an SMS, WhatsApp notification, or email snippet from Zomato, Swiggy, Blinkit, etc. No raw text is ever stored on the server.</p>
+
+        <div class="form-group">
+          <label class="form-label" for="receipt-raw-input">Receipt / Notification Text</label>
+          <textarea id="receipt-raw-input" class="form-input" rows="4" placeholder="e.g. Your order from Meghana Foods worth ₹480 has been delivered. Biryani x1. 11:45 PM"></textarea>
+          <span class="form-hint">Text is parsed in memory on demand. Phone numbers, addresses, and OTPs are discarded immediately.</span>
+        </div>
+
+        <button type="button" id="btn-parse-receipt" class="btn btn-secondary" style="margin-bottom: 1.5rem;">
+          Parse Receipt Preview
+        </button>
+
+        <!-- Preview & Confirmation Form (Visible after parse or for manual edit) -->
+        <div id="order-preview-container" style="display: none; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 600;">Confirm Order Details</h3>
+            <span id="parse-confidence-badge" class="badge"></span>
+          </div>
+
+          <div id="date-assumed-warning" class="alert alert-warning" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; font-size: 0.9rem;">
+            ⚠️ <strong>Date assumed.</strong> The receipt specified a time but no calendar date. We assumed today in your timezone. Please verify.
+          </div>
+
+          <form id="order-confirm-form">
+            <div class="form-group">
+              <label class="form-label" for="order-field-restaurant">
+                Restaurant
+                <span id="badge-restaurant" class="field-badge"></span>
+              </label>
+              <input type="text" id="order-field-restaurant" class="form-input" required>
+            </div>
+
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label" for="order-field-amount">
+                  Amount (₹)
+                  <span id="badge-amount" class="field-badge"></span>
+                </label>
+                <input type="number" step="0.5" id="order-field-amount" class="form-input" placeholder="e.g. 450">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="order-field-time">
+                  Delivery / Event Time (Local)
+                  <span id="badge-time" class="field-badge"></span>
+                </label>
+                <input type="datetime-local" id="order-field-time" class="form-input" required>
+                <span class="form-hint">Based on delivery time indicated on the receipt.</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="order-field-items">
+                Food Items (comma-separated)
+                <span id="badge-items" class="field-badge"></span>
+              </label>
+              <input type="text" id="order-field-items" class="form-input" placeholder="e.g. Chicken Biryani, Raita">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="order-field-categories">
+                Behavioral Classification
+                <span id="badge-categories" class="field-badge"></span>
+              </label>
+              <input type="text" id="order-field-categories" class="form-input" readonly style="background: var(--bg-surface-elevated); cursor: default;">
+              <span class="form-hint">This is a behavioral classification, not a nutritional diagnosis.</span>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
+              <button type="button" id="btn-cancel-order" class="btn btn-secondary">Clear</button>
+              <button type="submit" id="btn-save-order" class="btn btn-primary">Save Confirmed Order</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: BLOOD PRESSURE -->
+    <div id="pane-bp" class="tab-pane" role="tabpanel">
+      <div class="card">
+        <h2 class="card-title">Blood Pressure Reading</h2>
+        <p class="card-subtitle">Rest 5 minutes, sit with your back supported, and use a validated upper-arm monitor.</p>
+
+        <form id="bp-form">
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label" for="bp-systolic">Systolic (top number, mmHg)</label>
+              <input type="number" id="bp-systolic" class="form-input" min="60" max="260" placeholder="e.g. 120" required autofocus>
+              <span class="form-hint">Typical range 90–140</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="bp-diastolic">Diastolic (bottom number, mmHg)</label>
+              <input type="number" id="bp-diastolic" class="form-input" min="30" max="160" placeholder="e.g. 80" required>
+              <span class="form-hint">Must be lower than systolic</span>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label" for="bp-pulse">Pulse (optional, BPM)</label>
+              <input type="number" id="bp-pulse" class="form-input" min="30" max="240" placeholder="e.g. 72">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="bp-time">Reading Time (Local)</label>
+              <input type="datetime-local" id="bp-time" class="form-input" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="bp-source">Device / Source</label>
+            <select id="bp-source" class="form-input">
+              <option value="manual">Manual Entry (Upper-arm monitor)</option>
+              <option value="bluetooth_monitor">Bluetooth Monitor Sync</option>
+            </select>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+            <button type="submit" id="btn-save-bp" class="btn btn-primary">Save BP Reading</button>
+          </div>
+        </form>
+
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle); font-size: 0.85rem; color: var(--text-muted);">
+          Note: Blood pressure categories used in Pulse are simplified cut-offs for wellness awareness and do not constitute a medical diagnosis.
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: CAMERA PULSE -->
+    <div id="pane-pulse" class="tab-pane" role="tabpanel">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+          <div>
+            <h2 class="card-title">Experimental Pulse Estimate</h2>
+            <p class="card-subtitle">Camera pulse is an experimental wellness estimate and is not a medical measurement.</p>
+          </div>
+          <button id="toggle-manual-pulse" class="btn btn-secondary btn-sm">Enter Manually</button>
+        </div>
+
+        <!-- Camera Section -->
+        <div id="camera-pulse-section">
+          <div class="alert alert-info" style="font-size: 0.88rem; margin-bottom: 1.25rem;">
+            💡 <strong>Guidance:</strong> Works best on a phone's rear camera. Cover the lens and flash gently with your fingertip. Hold still for 30 seconds. Laptop webcams are not recommended for fingertip readings.
+          </div>
+
+          <div class="camera-viewport-wrap">
+            <video id="pulse-video" class="camera-video" playsinline muted autoplay></video>
+            <canvas id="pulse-canvas" width="32" height="32" style="display: none;"></canvas>
+            <div id="finger-indicator" class="finger-indicator">
+              <span id="finger-dot" style="width: 8px; height: 8px; border-radius: 50%; background: currentColor;"></span>
+              <span id="finger-text">Finger not detected</span>
+            </div>
+          </div>
+
+          <!-- Progress bar -->
+          <div style="max-width: 320px; margin: 0 auto 1.5rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;">
+              <span>Recording: <strong id="pulse-timer-sec">30s</strong></span>
+              <span id="pulse-progress-pct">0%</span>
+            </div>
+            <div class="progress-bar-container">
+              <div id="pulse-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: center; gap: 1rem;">
+            <button type="button" id="btn-start-camera" class="btn btn-primary">Start 30s Reading</button>
+            <button type="button" id="btn-stop-camera" class="btn btn-secondary" style="display: none;">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Manual Pulse Fallback Section -->
+        <div id="manual-pulse-section" style="display: none;">
+          <form id="manual-pulse-form" style="max-width: 400px; margin: 0 auto;">
+            <div class="form-group">
+              <label class="form-label" for="manual-pulse-bpm">Resting Pulse (BPM)</label>
+              <input type="number" id="manual-pulse-bpm" class="form-input" min="40" max="180" placeholder="e.g. 74" required>
+              <span class="form-hint">Accepted range: 40–180 BPM</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="manual-pulse-time">Time of measurement</label>
+              <input type="datetime-local" id="manual-pulse-time" class="form-input" required>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+              <button type="button" id="btn-back-to-camera" class="btn btn-secondary">Use Camera</button>
+              <button type="submit" class="btn btn-primary">Save Pulse</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: TYPING CADENCE -->
+    <div id="pane-typing" class="tab-pane" role="tabpanel">
+      <div class="card">
+        <h2 class="card-title">Typing Rhythm Check</h2>
+        <p class="card-subtitle">Measures typing cadence and pause intervals. Your actual text is never stored or transmitted.</p>
+
+        <div class="alert alert-info" style="font-size: 0.88rem; margin-bottom: 1.25rem;">
+          ℹ️ <strong>Physical Keyboard Recommended:</strong> Typing rhythm works best on a computer keyboard. Touchscreens produce non-standard key events.
+        </div>
+
+        <div class="typing-prompt-box">
+          <p id="typing-prompt-text" style="font-weight: 500;">Loading neutral sentence...</p>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <span style="font-size: 0.9rem; color: var(--text-secondary);">Type the passage above continuously:</span>
+          <span id="typing-countdown" style="font-weight: 700; color: var(--accent-cyan); font-size: 1.1rem;">60s</span>
+        </div>
+
+        <div class="form-group">
+          <textarea id="typing-test-input" class="form-input" rows="4" placeholder="Click here and start typing. The 60-second timer begins on your first keypress..." disabled></textarea>
+          <span class="form-hint">Paste is disabled to preserve natural typing intervals. Minimum session: 40 keystrokes and 30 seconds.</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+          <button type="button" id="btn-new-prompt" class="btn btn-secondary btn-sm">Get Another Sentence</button>
+          <span id="typing-status-hint" style="font-size: 0.85rem; color: var(--text-muted);">Ready to begin</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Project Pulse is a wellness and behavioral-support tool. It is not a medical device and does not diagnose or treat medical conditions.</p>
+    <p style="margin-top: 0.25rem;"><a href="/safety.html" style="color: var(--accent-cyan);">Safety Information & Support Helplines</a> · <a href="/settings.html" style="color: var(--accent-cyan);">Settings & Export</a></p>
+  </footer>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { showToast, showConfirm, setupAppLayout } from '/js/ui.js';
+    import { PulseCameraCapture } from '/js/pulse_camera.js';
+    import { TypingTaskManager } from '/js/typing_task.js';
+
+    // Helper to format ISO to datetime-local input string
+    function toLocalInputString(date) {
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await setupAppLayout('checkin');
+
+      // Initialize default times to now
+      const nowStr = toLocalInputString(new Date());
+      document.getElementById('order-field-time').value = nowStr;
+      document.getElementById('bp-time').value = nowStr;
+      document.getElementById('manual-pulse-time').value = nowStr;
+
+      // Handle deep-link tab selection (e.g. /checkin.html?tab=bp)
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetTab = urlParams.get('tab');
+      if (targetTab && ['order', 'bp', 'pulse', 'typing'].includes(targetTab)) {
+        switchTab(`pane-${targetTab}`, `tab-btn-${targetTab}`);
+      }
+
+      // --- Tab Switcher Logic ---
+      const tabBtns = document.querySelectorAll('.tab-btn');
+      tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetPaneId = btn.getAttribute('data-target');
+          switchTab(targetPaneId, btn.id);
+        });
+      });
+
+      function switchTab(paneId, btnId) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+        const targetBtn = document.getElementById(btnId);
+        const targetPane = document.getElementById(paneId);
+        if (targetBtn) targetBtn.classList.add('active');
+        if (targetPane) targetPane.classList.add('active');
+
+        // Lazy load typing prompt when typing tab becomes active
+        if (paneId === 'pane-typing') {
+          typingManager.loadPrompt();
+        }
+      }
+
+      // ==========================================
+      // TAB 1: ORDER INGESTION LOGIC
+      // ==========================================
+      let parsedOrderCache = null;
+
+      document.getElementById('btn-parse-receipt').addEventListener('click', async () => {
+        const rawText = document.getElementById('receipt-raw-input').value.trim();
+        if (!rawText) {
+          showToast('Please paste a receipt or order confirmation snippet first.', 'warning');
+          return;
+        }
+
+        try {
+          const preview = await api.post('/api/orders/parse', { text: rawText });
+          parsedOrderCache = preview;
+
+          // Populate fields
+          document.getElementById('order-field-restaurant').value = preview.restaurant === 'unknown' ? '' : preview.restaurant;
+          document.getElementById('order-field-amount').value = preview.amount !== null ? preview.amount : '';
+          document.getElementById('order-field-items').value = (preview.food_items || []).join(', ');
+          document.getElementById('order-field-categories').value = (preview.food_categories || []).join(', ') || 'unknown';
+
+          // Badges
+          setFieldBadge('badge-restaurant', preview.found_restaurant);
+          setFieldBadge('badge-amount', preview.found_amount);
+          setFieldBadge('badge-time', preview.found_time);
+          setFieldBadge('badge-items', preview.found_items);
+          setFieldBadge('badge-categories', (preview.food_categories || []).length > 0);
+
+          // Date assumed notice
+          const dateAssumedEl = document.getElementById('date-assumed-warning');
+          if (preview.date_assumed) {
+            dateAssumedEl.style.display = 'block';
+          } else {
+            dateAssumedEl.style.display = 'none';
+          }
+
+          // Parse confidence badge
+          const confBadge = document.getElementById('parse-confidence-badge');
+          const confScore = Math.round(preview.parse_confidence * 100);
+          confBadge.textContent = `${confScore}% confidence`;
+          confBadge.className = `badge ${confScore >= 70 ? 'badge-success' : 'badge-warning'}`;
+
+          // Delivery time conversion
+          if (preview.event_time) {
+            const dt = new Date(preview.event_time);
+            document.getElementById('order-field-time').value = toLocalInputString(dt);
+          }
+
+          document.getElementById('order-preview-container').style.display = 'block';
+          showToast('Receipt parsed. Please verify the extracted fields below.', 'info');
+        } catch (err) {
+          showToast(err.message || 'Failed to parse receipt text.', 'error');
+        }
+      });
+
+      function setFieldBadge(elId, found) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        el.textContent = found ? 'found' : 'not found';
+        el.className = `field-badge ${found ? 'badge-found' : 'badge-missing'}`;
+      }
+
+      document.getElementById('btn-cancel-order').addEventListener('click', () => {
+        document.getElementById('receipt-raw-input').value = '';
+        document.getElementById('order-preview-container').style.display = 'none';
+        parsedOrderCache = null;
+      });
+
+      document.getElementById('order-confirm-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const restaurant = document.getElementById('order-field-restaurant').value.trim() || 'unknown';
+        const amountVal = document.getElementById('order-field-amount').value;
+        const amount = amountVal ? parseFloat(amountVal) : null;
+        const timeVal = document.getElementById('order-field-time').value;
+        const eventTime = new Date(timeVal).toISOString();
+
+        const itemsStr = document.getElementById('order-field-items').value.trim();
+        const foodItems = itemsStr ? itemsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+        const categoriesStr = document.getElementById('order-field-categories').value.trim();
+        const foodCategories = categoriesStr ? categoriesStr.split(',').map(s => s.trim()).filter(Boolean) : ['unknown'];
+
+        const payload = {
+          event_time: eventTime,
+          restaurant: restaurant,
+          food_items: foodItems,
+          amount: amount,
+          source: parsedOrderCache ? parsedOrderCache.source : 'unknown',
+          food_categories: foodCategories,
+          date_assumed: parsedOrderCache ? parsedOrderCache.date_assumed : false,
+          parse_confidence: parsedOrderCache ? parsedOrderCache.parse_confidence : 1.0,
+        };
+
+        try {
+          await api.post('/api/orders', payload);
+          showToast('Order saved successfully!', 'success');
+          // Reset form
+          document.getElementById('receipt-raw-input').value = '';
+          document.getElementById('order-preview-container').style.display = 'none';
+          parsedOrderCache = null;
+        } catch (err) {
+          if (err.status === 409) {
+            showToast('This order looks already saved.', 'warning');
+          } else if (err.status === 403) {
+            showToast('Order consent required. Please enable it in Consent settings.', 'error');
+            setTimeout(() => window.location.href = '/consent.html', 1500);
+          } else {
+            showToast(err.message || 'Failed to save order.', 'error');
+          }
+        }
+      });
+
+      // ==========================================
+      // TAB 2: BLOOD PRESSURE LOGIC
+      // ==========================================
+      document.getElementById('bp-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const systolic = parseInt(document.getElementById('bp-systolic').value, 10);
+        const diastolic = parseInt(document.getElementById('bp-diastolic').value, 10);
+        const pulseVal = document.getElementById('bp-pulse').value;
+        const pulse = pulseVal ? parseInt(pulseVal, 10) : null;
+        const timeVal = document.getElementById('bp-time').value;
+        const eventTime = new Date(timeVal).toISOString();
+        const source = document.getElementById('bp-source').value;
+
+        if (diastolic >= systolic) {
+          showToast('Systolic (top number) must be greater than diastolic (bottom number).', 'error');
+          return;
+        }
+
+        const payload = {
+          event_time: eventTime,
+          systolic: systolic,
+          diastolic: diastolic,
+          pulse_optional: pulse,
+          source: source,
+        };
+
+        try {
+          const res = await api.post('/api/bp', payload);
+
+          // Handle urgent reading dialog
+          if (res.classification === 'urgent') {
+            showConfirm(
+              'Urgent Reading Attention',
+              res.urgent_message || 'This reading is very high. Recheck after resting and seek urgent medical care if the reading remains very high or you have concerning symptoms.',
+              () => { window.location.href = '/safety.html'; }
+            );
+          } else {
+            showToast(`BP reading saved (${res.classification.replace('_', ' ')}).`, 'success');
+          }
+
+          // Reset inputs but maintain focus sensibly
+          document.getElementById('bp-systolic').value = '';
+          document.getElementById('bp-diastolic').value = '';
+          document.getElementById('bp-pulse').value = '';
+          document.getElementById('bp-systolic').focus();
+        } catch (err) {
+          if (err.status === 409) {
+            showToast('A reading with these exact values was saved within the last 2 minutes.', 'warning');
+          } else if (err.status === 403) {
+            showToast('Health data consent required. Please grant it in Consent settings.', 'error');
+            setTimeout(() => window.location.href = '/consent.html', 1500);
+          } else {
+            showToast(err.message || 'Failed to record blood pressure.', 'error');
+          }
+        }
+      });
+
+      // ==========================================
+      // TAB 3: PULSE ESTIMATION LOGIC
+      // ==========================================
+      const videoEl = document.getElementById('pulse-video');
+      const canvasEl = document.getElementById('pulse-canvas');
+      const timerSecEl = document.getElementById('pulse-timer-sec');
+      const progressPctEl = document.getElementById('pulse-progress-pct');
+      const progressFillEl = document.getElementById('pulse-progress-fill');
+      const fingerDot = document.getElementById('finger-dot');
+      const fingerText = document.getElementById('finger-text');
+      const fingerContainer = document.getElementById('finger-indicator');
+      const btnStartCamera = document.getElementById('btn-start-camera');
+      const btnStopCamera = document.getElementById('btn-stop-camera');
+
+      let cameraCapture = null;
+
+      btnStartCamera.addEventListener('click', async () => {
+        try {
+          cameraCapture = new PulseCameraCapture(
+            videoEl,
+            canvasEl,
+            (pct, remaining) => {
+              progressPctEl.textContent = `${pct}%`;
+              progressFillEl.style.width = `${pct}%`;
+              timerSecEl.textContent = `${remaining}s`;
+            },
+            (status) => {
+              if (status.fingerDetected) {
+                fingerContainer.classList.add('detected');
+                fingerText.textContent = 'Finger in place';
+              } else {
+                fingerContainer.classList.remove('detected');
+                fingerText.textContent = 'Cover camera gently';
+              }
+            }
+          );
+
+          btnStartCamera.style.display = 'none';
+          btnStopCamera.style.display = 'inline-block';
+          showToast('Starting camera... Cover camera and flash with your fingertip.', 'info');
+
+          const result = await cameraCapture.start();
+          // Camera capture runs its loop until finish() is triggered at 30s
+        } catch (err) {
+          btnStartCamera.style.display = 'inline-block';
+          btnStopCamera.style.display = 'none';
+          if (cameraCapture) cameraCapture.stop();
+
+          if (err.status === 422) {
+            showToast('Measurement rejected. Try better lighting and keep your finger still.', 'warning');
+          } else if (err.status === 403) {
+            showToast('Camera & health consent required. Please enable them in Consent settings.', 'error');
+            setTimeout(() => window.location.href = '/consent.html', 1500);
+          } else {
+            showToast(err.message || 'Camera capture failed.', 'error');
+          }
+        }
+      });
+
+      btnStopCamera.addEventListener('click', () => {
+        if (cameraCapture) {
+          cameraCapture.stop();
+        }
+        btnStartCamera.style.display = 'inline-block';
+        btnStopCamera.style.display = 'none';
+        progressPctEl.textContent = '0%';
+        progressFillEl.style.width = '0%';
+        timerSecEl.textContent = '30s';
+        showToast('Measurement cancelled.', 'info');
+      });
+
+      // Toggle Manual Pulse
+      document.getElementById('toggle-manual-pulse').addEventListener('click', () => {
+        document.getElementById('camera-pulse-section').style.display = 'none';
+        document.getElementById('manual-pulse-section').style.display = 'block';
+        if (cameraCapture) cameraCapture.stop();
+      });
+
+      document.getElementById('btn-back-to-camera').addEventListener('click', () => {
+        document.getElementById('manual-pulse-section').style.display = 'none';
+        document.getElementById('camera-pulse-section').style.display = 'block';
+      });
+
+      document.getElementById('manual-pulse-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const bpm = parseInt(document.getElementById('manual-pulse-bpm').value, 10);
+        const timeVal = document.getElementById('manual-pulse-time').value;
+        const eventTime = new Date(timeVal).toISOString();
+
+        const clientUuid = 'man-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+
+        try {
+          const res = await api.post('/api/pulse', {
+            bpm: bpm,
+            event_time: eventTime,
+            duration_seconds: 30,
+            source: 'manual',
+            client_uuid: clientUuid
+          });
+          showToast(`Manual pulse reading saved: ${res.bpm} BPM`, 'success');
+          document.getElementById('manual-pulse-bpm').value = '';
+          document.getElementById('manual-pulse-section').style.display = 'none';
+          document.getElementById('camera-pulse-section').style.display = 'block';
+        } catch (err) {
+          if (err.status === 403) {
+            showToast('Health data consent required. Please grant it in Consent settings.', 'error');
+          } else {
+            showToast(err.message || 'Failed to save manual pulse reading.', 'error');
+          }
+        }
+      });
+
+      // ==========================================
+      // TAB 4: TYPING RHYTHM LOGIC
+      // ==========================================
+      const promptEl = document.getElementById('typing-prompt-text');
+      const testInputEl = document.getElementById('typing-test-input');
+      const typingTimerEl = document.getElementById('typing-countdown');
+      const typingStatusHint = document.getElementById('typing-status-hint');
+
+      const typingManager = new TypingTaskManager(
+        testInputEl,
+        promptEl,
+        typingTimerEl,
+        (res) => {
+          showToast(`Typing check complete! Speed: ${res.typing_speed_wpm} WPM`, 'success');
+          typingStatusHint.textContent = `Completed: ${res.typing_speed_wpm} WPM, ${(res.error_rate * 100).toFixed(1)}% error rate.`;
+          setTimeout(() => typingManager.loadPrompt(), 2500);
+        }
+      );
+
+      document.getElementById('btn-new-prompt').addEventListener('click', () => {
+        typingManager.loadPrompt();
+      });
+    });
+  </script>
+</body>
+</html>
